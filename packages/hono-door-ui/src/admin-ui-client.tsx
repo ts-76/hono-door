@@ -1095,29 +1095,23 @@ function ArchiveDetails({
 
   return (
     <div class="link-details-content">
-      <section class="archive-room">
-        <h3>{t.contentSection}</h3>
-        {state.detail.rooms.length === 0 ? (
-          <p class="empty-state">{t.noSavedContent}</p>
-        ) : (
-          state.detail.rooms.map((room) => <RoomCard t={t} locale={locale} linkId={linkId} room={room} key={room.roomId} />)
-        )}
-      </section>
-      <details class="detail-disclosure">
-        <summary>
-          {t.tokenHistory} ({state.detail.tokens.length})
-        </summary>
-        <ArchiveTokenList t={t} locale={locale} tokens={state.detail.tokens} />
-      </details>
-      <details class="detail-disclosure danger-disclosure">
-        <summary>{t.dangerZone}</summary>
-        <p class="hint">{t.deleteArchiveHint}</p>
-        <div class="step-controls">
-          <button type="button" class="danger" disabled={deleteDisabled} onClick={onDelete}>
-            {deleting ? t.deletingArchive : t.deleteArchive}
-          </button>
-        </div>
-      </details>
+      <div class="archive-detail-grid">
+        <section class="archive-room">
+          {state.detail.rooms.length === 0 ? (
+            <p class="empty-state">{t.noSavedContent}</p>
+          ) : (
+            state.detail.rooms.map((room) => <RoomCard t={t} locale={locale} linkId={linkId} room={room} key={room.roomId} />)
+          )}
+        </section>
+        <ArchiveManagementPanel
+          t={t}
+          locale={locale}
+          tokens={state.detail.tokens}
+          onDelete={onDelete}
+          deleting={deleting}
+          deleteDisabled={deleteDisabled}
+        />
+      </div>
     </div>
   )
 }
@@ -1169,46 +1163,59 @@ function archivePreviewPath(linkId: string, roomId: string) {
   return `/admin/ui/archive/${encodeURIComponent(linkId)}/rooms/${encodeURIComponent(roomId)}/preview`
 }
 
-function ArchiveTokenList({ t, locale, tokens }: { t: AdminUiText; locale: AdminUiLocale; tokens: TokenSummary[] }) {
-  if (tokens.length === 0) {
-    return <p class="empty-state">{t.noTokenHistory}</p>
-  }
-
+function ArchiveManagementPanel({
+  t,
+  locale,
+  tokens,
+  onDelete,
+  deleting,
+  deleteDisabled,
+}: {
+  t: AdminUiText
+  locale: AdminUiLocale
+  tokens: TokenSummary[]
+  onDelete: () => void
+  deleting: boolean
+  deleteDisabled: boolean
+}) {
   return (
-    <div class="token-list">
-      {tokens.map((token) => (
-        <details class="token-item" key={token.tokenHash}>
-          <summary>
-            <span>{formatTokenState(token.state, t)}</span>
-            <span>{token.label ?? token.role}</span>
-            <span>{formatDateTime(token.expiresAt, locale)}</span>
-          </summary>
-          <div class="token-detail-body">
-            <dl>
-              <div>
-                <dt>{t.role}</dt>
-                <dd>{token.role}</dd>
+    <aside class="archive-management">
+      <button type="button" class="danger archive-delete-button" disabled={deleteDisabled} onClick={onDelete}>
+        {deleting ? t.deletingArchive : t.deleteArchive}
+      </button>
+      {tokens.length === 0 ? (
+        <p class="empty-state">{t.noTokenHistory}</p>
+      ) : (
+        <div class="archive-token-table">
+          {tokens.map((token) => (
+            <article class="archive-token-row" key={token.tokenHash}>
+              <div class="archive-token-main">
+                <span>{formatTokenState(token.state, t)}</span>
+                <span>{token.label ?? token.role}</span>
+                <span>{formatDateTime(token.expiresAt, locale)}</span>
               </div>
-              <div>
-                <dt>{t.revokedAt}</dt>
-                <dd>{token.revokedAt ? formatDateTime(token.revokedAt, locale) : t.none}</dd>
-              </div>
-              <div>
-                <dt>{t.useCount}</dt>
-                <dd>
-                  {token.useCount}
-                  {token.maxUses ? ` / ${token.maxUses}` : ''}
-                </dd>
-              </div>
-              <div>
-                <dt>{t.tokenHash}</dt>
-                <dd>{token.tokenHash}</dd>
-              </div>
-            </dl>
-          </div>
-        </details>
-      ))}
-    </div>
+              <dl class="inline-meta archive-token-meta">
+                <div>
+                  <dt>{t.useCount}</dt>
+                  <dd>
+                    {token.useCount}
+                    {token.maxUses ? ` / ${token.maxUses}` : ''}
+                  </dd>
+                </div>
+                <div>
+                  <dt>{t.revokedAt}</dt>
+                  <dd>{token.revokedAt ? formatDateTime(token.revokedAt, locale) : t.none}</dd>
+                </div>
+                <div>
+                  <dt>{t.tokenHash}</dt>
+                  <dd>{token.tokenHash}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      )}
+    </aside>
   )
 }
 
