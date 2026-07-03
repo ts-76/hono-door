@@ -91,18 +91,20 @@ a public link. For custom systems such as surveys, issue a new `roomId` for each
 public survey/event and use that value as the foreign key in your own Durable
 Object or D1 schema.
 
-`hono-door` keeps `roomId` unique as a storage address:
+`hono-door` treats `roomId` as unique link content:
 
 - `ROOMS.getByName(roomId)` always resolves the same `Room` Durable Object.
-- `Registry.rooms.room_id` is a primary key, so duplicate room rows are not
-  created.
+- `Registry.rooms.room_id` is a primary key, so archived room previews are keyed
+  by `roomId`.
+- Issuing or switching to a `roomId` already used by another `linkId` returns
+  `409`.
 - Public renderers receive `link.roomId`, `link.linkId`, `link.tokenHash`,
   `link.label`, `link.role`, and `link.expiresAt` after token validation.
 
-The package does not reject a repeated `roomId`. Calling `/admin/rooms/:roomId`
-again for the same `roomId` updates that room. Issuing a link reads the current
-room state and records it for archive review. For archive-safe custom workflows,
-do not reuse a `roomId` for another survey/event; create a fresh ID instead.
+Calling `/admin/rooms/:roomId` again for the same `roomId` updates that room.
+Issuing a link reads the current room state and records it for archive review.
+For archive-safe custom workflows, create a fresh `roomId` for each
+survey/event.
 
 For example, a survey app can use `roomId` as the stable key:
 
@@ -281,6 +283,7 @@ The repo Worker mounts:
 | `GET` | `/admin/ui/api/links` | UI session | UI proxy for active links |
 | `GET` | `/admin/ui/api/links/archive` | UI session | UI proxy for inactive archive search |
 | `GET` | `/admin/ui/api/links/archive/:linkId` | UI session | UI proxy for archived link detail |
+| `DELETE` | `/admin/ui/api/links/archive/:linkId` | UI session | UI proxy for deleting an inactive archive record |
 | `GET` | `/admin/ui/api/links/:linkId/tokens` | UI session | UI proxy for active token metadata |
 | `GET` | `/admin/ui/api/links/:linkId/issue-policy` | UI session | UI proxy for issue policy |
 | `PUT` | `/admin/ui/api/links/:linkId/issue-policy` | UI session | UI proxy for issue policy update |
@@ -289,6 +292,7 @@ The repo Worker mounts:
 | `GET` | `/admin/links` | bearer admin token | List active links |
 | `GET` | `/admin/links/archive` | bearer admin token | Search inactive archived links |
 | `GET` | `/admin/links/archive/:linkId` | bearer admin token | Archived link detail with room snapshot and token history |
+| `DELETE` | `/admin/links/archive/:linkId` | bearer admin token | Delete an inactive archive record |
 | `GET` | `/admin/links/:linkId` | bearer admin token | Link status |
 | `GET` | `/admin/links/:linkId/tokens` | bearer admin token | List active token metadata for a link |
 | `GET` | `/admin/links/:linkId/issue-policy` | bearer admin token | Get link issue policy |
@@ -582,6 +586,24 @@ from `/admin/links/archive` or the browser archive UI. Archived room previews
 remain admin-session-only and do not make the link public again.
 Manual archive does not change `roomId` or rewrite token hashes.
 
+### Delete Archived Link
+
+```bash
+curl -sS -X DELETE "$SHORT_LINK_ADMIN_BASE_URL/admin/links/archive/summer-event" \
+  -H "Authorization: Bearer $SHORT_LINK_ADMIN_TOKEN"
+```
+
+Response:
+
+```json
+{"linkId":"summer-event","deleted":true}
+```
+
+Deleting is only allowed after a link has no active tokens. It removes the
+retained archive record, token history, and admin preview data for that link.
+Room snapshots that are no longer referenced by any remaining link are removed
+from the Registry as well.
+
 ### Link Status
 
 ```bash
@@ -609,6 +631,8 @@ from `/admin/links/archive`. Browser archive previews require an admin UI
 session and do not make the link public again. Use
 `POST /admin/links/:linkId/reissue` only when you intentionally want a new
 public URL and QR-ready token.
+Use `DELETE /admin/links/archive/:linkId` only when the retained history and
+admin preview are no longer needed.
 
 ### Switch Link Room
 
@@ -695,9 +719,9 @@ examples above for status and revoke until CLI wrappers are added.
 - The admin UI issues links for an existing or application-managed `roomId`; it
   does not edit room title/body content. Use `/admin/rooms/:roomId` or a custom
   application UI for room content.
-- Treat `roomId` as a stable application key. The same `roomId` resolves to the
-  same `Room` Durable Object and Registry room row; repeated writes update that
-  room, so issue a fresh `roomId` for each survey/event instead of reusing one.
+- Treat `roomId` as a stable application key for one link's content. The same
+  `roomId` resolves to the same `Room` Durable Object and Registry room row, so
+  issuing or switching another `linkId` to an already-used `roomId` is rejected.
 - The built-in public page is intentionally not a room content UI. Production
   applications should pass `door.public(({ link }) => ...)` and render their
   own content using `link.roomId`, `link.label`, and application data.

@@ -507,6 +507,16 @@ export class PublicLink extends DurableObject<unknown> {
     return policy
   }
 
+  async deleteLinkData(): Promise<{ deleted: true }> {
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec('DELETE FROM tokens;')
+      this.ctx.storage.sql.exec('DELETE FROM link_settings;')
+    })
+    await this.ctx.storage.deleteAlarm()
+
+    return { deleted: true }
+  }
+
   async alarm(): Promise<void> {
     this.cleanupExpiredTokens()
     await this.scheduleCleanup()

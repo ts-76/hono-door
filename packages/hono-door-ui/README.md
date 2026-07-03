@@ -2,7 +2,8 @@
 
 Optional browser admin UI for `hono-door`. It provides URL and QR issuing,
 active link listing, inactive archive search, admin-only archive previews,
-issue-policy editing, active-link reissue flows, and manual archive before TTL.
+issue-policy editing, active-link reissue flows, manual archive before TTL, and
+manual archive deletion.
 
 The issue UI accepts `linkId`, `roomId`, TTL, label, and max-use settings. It
 submits directly from that form and then shows the issued URL/QR result. It does
@@ -16,6 +17,9 @@ use the archived link's `linkId` and `roomId`; they do not create a new token or
 public URL. By default the package returns a minimal admin preview, but apps can
 pass `renderArchivePreview` to reuse the same custom presentation they use for
 public links.
+
+Deleting an archived link removes retained token history and admin preview data.
+It is only available for links with no active token.
 
 The UI supports Japanese and English. Locale is detected with Hono's language
 middleware from `?lang=ja|en`, the language cookie, and `Accept-Language`, with

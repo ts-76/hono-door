@@ -131,6 +131,11 @@ export type ShortLinkArchivedLink = {
   revokedTokenCount: number
 }
 
+export type ShortLinkDeletedLink = {
+  linkId: string
+  deleted: true
+}
+
 export type ShortLinkArchiveSearchInput = {
   q?: string | undefined
 }

@@ -68,6 +68,7 @@ function createDoorWithOptions<T extends HonoEnv>(
         updateIssuePolicy: operations.updateIssuePolicy,
         reissueLink: operations.reissueLink,
         archiveLink: operations.archiveLink,
+        deleteArchivedLink: operations.deleteArchivedLink,
       }),
     protect,
     adminAuth: () => adminAuth,
@@ -81,6 +82,7 @@ function createDoorWithOptions<T extends HonoEnv>(
     updateIssuePolicy: operations.updateIssuePolicy,
     reissueLink: operations.reissueLink,
     archiveLink: operations.archiveLink,
+    deleteArchivedLink: operations.deleteArchivedLink,
     adminSessionSecret: operations.adminSessionSecret,
     renderPage: defaultPublicPage,
   }

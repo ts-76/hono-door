@@ -52,6 +52,14 @@ export type RegistryRecordRoomInput = {
   body?: string | undefined
 }
 
+type RoomLinkRow = {
+  link_id: string
+}
+
+type RoomIdRow = {
+  room_id: string
+}
+
 type LinkSummaryRow = {
   link_id: string
   current_room_id: string
@@ -247,6 +255,101 @@ export class Registry extends DurableObject<unknown> {
     )
 
     return { recorded: true }
+  }
+
+  findRoomLinkIds(roomId: string): { linkIds: string[] } {
+    const rows = this.ctx.storage.sql
+      .exec<RoomLinkRow>(
+        `
+          SELECT link_id
+          FROM links
+          WHERE current_room_id = ?
+          UNION
+          SELECT link_id
+          FROM tokens
+          WHERE room_id = ?
+          ORDER BY link_id ASC;
+        `,
+        roomId,
+        roomId,
+      )
+      .toArray()
+
+    return { linkIds: rows.map((row) => row.link_id) }
+  }
+
+  deleteArchivedLink(linkId: string): { deleted: boolean } {
+    const row = this.ctx.storage.sql
+      .exec<{ link_id: string }>(
+        `
+          SELECT link_id
+          FROM links
+          WHERE link_id = ?;
+        `,
+        linkId,
+      )
+      .toArray()[0]
+
+    if (!row) return { deleted: false }
+
+    const rooms = this.ctx.storage.sql
+      .exec<RoomIdRow>(
+        `
+          SELECT current_room_id AS room_id
+          FROM links
+          WHERE link_id = ?
+          UNION
+          SELECT room_id
+          FROM tokens
+          WHERE link_id = ?;
+        `,
+        linkId,
+        linkId,
+      )
+      .toArray()
+      .map((room) => room.room_id)
+
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec(
+        `
+          DELETE FROM tokens
+          WHERE link_id = ?;
+        `,
+        linkId,
+      )
+      this.ctx.storage.sql.exec(
+        `
+          DELETE FROM links
+          WHERE link_id = ?;
+        `,
+        linkId,
+      )
+
+      for (const roomId of rooms) {
+        this.ctx.storage.sql.exec(
+          `
+            DELETE FROM rooms
+            WHERE
+              room_id = ?
+              AND NOT EXISTS (
+                SELECT 1
+                FROM links
+                WHERE current_room_id = ?
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM tokens
+                WHERE room_id = ?
+              );
+          `,
+          roomId,
+          roomId,
+          roomId,
+        )
+      }
+    })
+
+    return { deleted: true }
   }
 
   recordTokenRevoked(linkId: string, tokenHash: string): { revoked: boolean } {

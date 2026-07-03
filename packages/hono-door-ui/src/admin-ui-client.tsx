@@ -878,6 +878,7 @@ function ArchiveApp({
   const [status, setStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   const [error, setError] = useState<string>()
   const [details, setDetails] = useState<Record<string, ArchiveDetailState>>({})
+  const [pendingDeleteLinkId, setPendingDeleteLinkId] = useState<string>()
 
   useEffect(() => {
     if (authenticated && status === 'idle') {
@@ -939,11 +940,40 @@ function ArchiveApp({
     }))
   }
 
+  const deleteArchiveLink = async (linkId: string) => {
+    if (pendingDeleteLinkId !== undefined) return
+    if (!window.confirm(t.deleteArchiveConfirm)) return
+
+    setPendingDeleteLinkId(linkId)
+    setError(undefined)
+    try {
+      const response = await fetch(`/admin/ui/api/links/archive/${encodeURIComponent(linkId)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      })
+      if (!response.ok) {
+        setStatus('error')
+        setError(await responseError(response))
+        return
+      }
+
+      setLinks((current) => current.filter((link) => link.linkId !== linkId))
+      setDetails((current) => {
+        const next = { ...current }
+        delete next[linkId]
+        return next
+      })
+    } finally {
+      setPendingDeleteLinkId(undefined)
+    }
+  }
+
   const logout = () => {
     setAuthenticated(false)
     setStatus('idle')
     setLinks([])
     setDetails({})
+    setPendingDeleteLinkId(undefined)
   }
 
   if (!authenticated) {
@@ -1024,6 +1054,9 @@ function ArchiveApp({
                     locale={locale}
                     linkId={link.linkId}
                     state={details[link.linkId]}
+                    onDelete={() => void deleteArchiveLink(link.linkId)}
+                    deleting={pendingDeleteLinkId === link.linkId}
+                    deleteDisabled={pendingDeleteLinkId !== undefined}
                   />
                 </div>
               </details>
@@ -1040,11 +1073,17 @@ function ArchiveDetails({
   locale,
   linkId,
   state,
+  onDelete,
+  deleting,
+  deleteDisabled,
 }: {
   t: AdminUiText
   locale: AdminUiLocale
   linkId: string
   state: ArchiveDetailState | undefined
+  onDelete: () => void
+  deleting: boolean
+  deleteDisabled: boolean
 }) {
   if (!state || state.status === 'loading') {
     return <p class="empty-state">{t.loadingDetails}</p>
@@ -1068,6 +1107,15 @@ function ArchiveDetails({
         )}
       </section>
       <ArchiveTokenList t={t} locale={locale} tokens={state.detail.tokens} />
+      <section class="detail-section danger-zone">
+        <h3>{t.dangerZone}</h3>
+        <p class="hint">{t.deleteArchiveHint}</p>
+        <div class="step-controls">
+          <button type="button" class="danger" disabled={deleteDisabled} onClick={onDelete}>
+            {deleting ? t.deletingArchive : t.deleteArchive}
+          </button>
+        </div>
+      </section>
     </div>
   )
 }

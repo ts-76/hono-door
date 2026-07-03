@@ -12,6 +12,7 @@ import type {
   ShortLinkArchivedLink,
   PublicLinkIssuePolicy,
   ShortLinkArchiveSearchInput,
+  ShortLinkDeletedLink,
   ShortLinkIssuePolicyInput,
   ShortLinkIssuedLink,
   ShortLinkIssueLinkInput,
@@ -80,6 +81,10 @@ export type AdminUiShortLink<T extends HonoEnv> = {
     c: Context<T>,
     linkId: string,
   ): Promise<ShortLinkOperationResult<ShortLinkArchivedLink>>
+  deleteArchivedLink(
+    c: Context<T>,
+    linkId: string,
+  ): Promise<ShortLinkOperationResult<ShortLinkDeletedLink>>
   adminSessionSecret(c: Context<T>): Promise<ShortLinkOperationResult<string>>
 }
 
@@ -194,6 +199,16 @@ export function createDoorUi<T extends HonoEnv>(
     if (!session.ok) return c.json({ error: session.error }, session.status)
 
     const result = await shortLink.getArchivedLink(c, c.req.param('linkId'))
+    if (!result.ok) return c.json({ error: result.error }, result.status)
+
+    return c.json(result.value)
+  })
+
+  routes.delete('/ui/api/links/archive/:linkId', async (c) => {
+    const session = await readAdminSession(c, shortLink)
+    if (!session.ok) return c.json({ error: session.error }, session.status)
+
+    const result = await shortLink.deleteArchivedLink(c, c.req.param('linkId'))
     if (!result.ok) return c.json({ error: result.error }, result.status)
 
     return c.json(result.value)

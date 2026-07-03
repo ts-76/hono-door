@@ -26,6 +26,7 @@ export type {
   ShortLinkArchivedLink,
   ShortLinkArchiveSearchInput,
   ShortLinkContext,
+  ShortLinkDeletedLink,
   ShortLinkEnv,
   ShortLinkIssuedLink,
   ShortLinkIssuePolicyInput,

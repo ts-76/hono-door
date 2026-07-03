@@ -33,9 +33,9 @@ admin API examples, archive search, and token lifecycle details.
 
 Use `roomId` as the stable application-owned key for custom content. The same
 `roomId` resolves to the same `Room` Durable Object, and the Registry stores one
-row per `room_id`. Reusing a `roomId` updates that room; it does not create a
-second room. For survey or event systems, create a fresh `roomId` per public
-survey/event and use it as the foreign key in your own DO or D1 data.
+row per `room_id`. Issuing or switching another `linkId` to an already-used
+`roomId` is rejected, so create a fresh `roomId` per public survey/event and use
+it as the foreign key in your own DO or D1 data.
 
 Public renderers receive `link.roomId`, `link.linkId`, `link.tokenHash`,
 `link.label`, `link.role`, and `link.expiresAt` after token validation, so they

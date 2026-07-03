@@ -12,6 +12,7 @@ import type {
   DoorConfig,
   ShortLinkArchivedLink,
   ShortLinkArchiveSearchInput,
+  ShortLinkDeletedLink,
   ShortLinkIssuePolicyInput,
   ShortLinkIssuedLink,
   ShortLinkIssueLinkInput,
@@ -55,6 +56,9 @@ export function createDoorOperations<T extends HonoEnv>(config: DoorConfig<T>) {
     },
     archiveLink(c: Context<T>, linkId: string) {
       return archiveLink(config, c, linkId)
+    },
+    deleteArchivedLink(c: Context<T>, linkId: string) {
+      return deleteArchivedLink(config, c, linkId)
     },
     adminSessionSecret(c: Context<T>) {
       return adminSessionSecret(config, c)
@@ -107,22 +111,23 @@ async function issueLink<T extends HonoEnv>(
   }
 
   const room = normalizeRoomInput(input.room)
-  const roomId = room.id ?? input.roomId
+  const publicLink = resolve(config.publicLinks, c).getByName(input.linkId)
+  const roomId = room.id ?? input.roomId ?? await publicLink.getCurrentRoomId()
+  const availability = await ensureRoomIdAvailable(config, c, input.linkId, roomId)
+  if (!availability.ok) return availability
 
-  if (roomId !== undefined) {
-    await recordRoomSnapshot(config, c, roomId)
-  }
+  await recordRoomSnapshot(config, c, roomId)
 
   const role = input.role ?? 'viewer'
   const tokenInput: IssueTokenInput = {
     ttlSeconds: ttlSeconds.value,
     role,
   }
-  if (roomId !== undefined) tokenInput.roomId = roomId
+  tokenInput.roomId = roomId
   if (input.label !== undefined) tokenInput.label = input.label
   if (maxUses.value !== undefined) tokenInput.maxUses = maxUses.value
 
-  const result = await resolve(config.publicLinks, c).getByName(input.linkId).issueToken(tokenInput)
+  const result = await publicLink.issueToken(tokenInput)
   const registryInput = {
     linkId: input.linkId,
     tokenHash: result.tokenHash,
@@ -323,6 +328,25 @@ async function reissueLink<T extends HonoEnv>(
   }
 }
 
+async function ensureRoomIdAvailable<T extends HonoEnv>(
+  config: DoorConfig<T>,
+  c: Context<T>,
+  linkId: string,
+  roomId: string,
+): Promise<ShortLinkOperationResult<true>> {
+  const usage = await resolve(config.registry, c).getByName('default').findRoomLinkIds(roomId)
+  const conflictingLinkId = usage.linkIds.find((candidate) => candidate !== linkId)
+  if (conflictingLinkId !== undefined) {
+    return {
+      ok: false,
+      status: 409,
+      error: `roomId "${roomId}" is already used by link "${conflictingLinkId}". Use a unique roomId.`,
+    }
+  }
+
+  return { ok: true, value: true }
+}
+
 async function recordRoomSnapshot<T extends HonoEnv>(
   config: DoorConfig<T>,
   c: Context<T>,
@@ -355,6 +379,38 @@ async function archiveLink<T extends HonoEnv>(
       linkId,
       archived: true,
       revokedTokenCount: result.revokedTokenCount,
+    },
+  }
+}
+
+async function deleteArchivedLink<T extends HonoEnv>(
+  config: DoorConfig<T>,
+  c: Context<T>,
+  linkId: string,
+): Promise<ShortLinkOperationResult<ShortLinkDeletedLink>> {
+  const registry = resolve(config.registry, c).getByName('default')
+  const detail = await registry.getArchiveLink(linkId)
+  if (!detail) {
+    return { ok: false, status: 404, error: 'Link not found.' }
+  }
+
+  const link = resolve(config.publicLinks, c).getByName(linkId)
+  const status = await link.getStatus()
+  if (status.activeTokenCount > 0) {
+    return { ok: false, status: 409, error: 'Link is active. Archive it before deleting.' }
+  }
+
+  await link.deleteLinkData()
+  const result = await registry.deleteArchivedLink(linkId)
+  if (!result.deleted) {
+    return { ok: false, status: 404, error: 'Link not found.' }
+  }
+
+  return {
+    ok: true,
+    value: {
+      linkId,
+      deleted: true,
     },
   }
 }
