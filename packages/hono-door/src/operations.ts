@@ -116,8 +116,11 @@ async function issueLink<T extends HonoEnv>(
     if (title) roomInput.title = title
     if (body) roomInput.body = body
     if (roomInput.title !== undefined || roomInput.body !== undefined) {
-      await resolve(config.rooms, c).getByName(roomId).setState(roomInput)
-      await resolve(config.registry, c).getByName('default').recordRoomSet(roomId, roomInput)
+      const roomObject = resolve(config.rooms, c).getByName(roomId)
+      const state = await roomObject.setState(roomInput)
+      await recordRoomSnapshot(config, c, roomId, { title: state.title, body: state.body })
+    } else {
+      await recordRoomSnapshot(config, c, roomId)
     }
   }
 
@@ -315,6 +318,7 @@ async function reissueLink<T extends HonoEnv>(
     ...(policy.label !== undefined ? { label: policy.label } : {}),
     ...(policy.maxUses !== undefined ? { maxUses: policy.maxUses } : {}),
   }
+  await recordRoomSnapshot(config, c, result.roomId)
   await resolve(config.registry, c).getByName('default').recordTokenIssued(registryInput)
 
   const url = new URL(publicPathFor(config.publicPath, linkId), publicBaseUrl(config, c))
@@ -328,6 +332,19 @@ async function reissueLink<T extends HonoEnv>(
       revokedTokenCount: result.revokedTokenCount,
     },
   }
+}
+
+async function recordRoomSnapshot<T extends HonoEnv>(
+  config: DoorConfig<T>,
+  c: Context<T>,
+  roomId: string,
+  stateInput?: { title: string; body: string },
+) {
+  const state = stateInput ?? await resolve(config.rooms, c).getByName(roomId).getState()
+  await resolve(config.registry, c).getByName('default').recordRoomSet(roomId, {
+    title: state.title,
+    body: state.body,
+  })
 }
 
 async function archiveLink<T extends HonoEnv>(
