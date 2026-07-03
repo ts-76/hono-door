@@ -39,7 +39,7 @@
       "version": "0.1.0",
       "dependencies": {
         "hono": "^4.10.7",
-        "hono-door": "workspace:^",
+        "hono-door": ">=0.1.0 <1.0.0",
         "qrcode-terminal": "^0.12.0",
         "zod": "^3.25.76",
       },

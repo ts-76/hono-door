@@ -51,6 +51,20 @@ bun add hono-door hono-door-ui
 The sample app also depends on `qrcode-terminal` for the local CLI's terminal QR
 output. That CLI dependency is separate from the `hono-door` core package.
 
+## Requirements
+
+- Runtime: Cloudflare Workers with Durable Objects and SQLite-backed Durable
+  Object classes.
+- Framework: Hono 4.10 or newer.
+- Package manager: Bun is used in this repository. Published packages can be
+  installed with Bun, npm, pnpm, or another Node package manager.
+- Wrangler config: bind `PUBLIC_LINKS`, `ROOMS`, and `REGISTRY`, and add
+  `new_sqlite_classes` migrations for `PublicLink`, `Room`, and `Registry`.
+- Worker entrypoint: export `PublicLink`, `Registry`, and `Room` so Wrangler can
+  instantiate the bound Durable Object classes.
+- Secrets and vars: set `ADMIN_API_TOKEN`; set `PUBLIC_BASE_URL` to the origin
+  that should appear in issued public URLs.
+
 ## What It Does
 
 - `PublicLink` is a SQLite-backed Durable Object keyed by public link ID.
@@ -285,6 +299,19 @@ The repo Worker mounts:
 | `POST` | `/admin/links/:linkId/switch-room` | bearer admin token | Point link at another room |
 | `POST` | `/admin/links/:linkId/revoke` | bearer admin token | Revoke a token by hash |
 | `POST` | `/admin/rooms/:roomId` | bearer admin token | Set room content |
+
+## Request Requirements
+
+- Admin JSON API requests must include
+  `Authorization: Bearer <ADMIN_API_TOKEN>`.
+- Requests with JSON bodies must include `Content-Type: application/json`.
+- Public link requests require a valid raw token by `?token=...`,
+  `Authorization: Bearer <raw-token>`, or the link-scoped HttpOnly cookie that
+  is set after query-token access.
+- Raw public tokens are returned only by issue/reissue responses. List, archive,
+  and detail endpoints return token hashes and metadata only.
+- Browser admin UI API requests under `/admin/ui/api/*` use the signed UI
+  session cookie created by `POST /admin/ui/api/session`, not bearer auth.
 
 ## Admin API Reference
 
@@ -768,10 +795,11 @@ workflow publishes both npm packages:
 - `hono-door`
 - `hono-door-ui`
 
-Use conventional commits (`feat:`, `fix:`, etc.) so semantic-release can choose
-the next version. Before the first automated publish, configure npm trusted
-publishing for this GitHub repository and both package names so the workflow can
-publish with provenance through GitHub OIDC.
+Releases stay on the `0.x` line until the package is ready for a stable `1.0`.
+Conventional release commits such as `feat:`, `fix:`, and `perf:` advance the
+minor version, so automated releases use `0.x.0` versions. Before the first
+automated publish, configure npm trusted publishing for this GitHub repository
+and both package names so the workflow can publish through GitHub OIDC.
 
 Normal release flow:
 

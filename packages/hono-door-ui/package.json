@@ -45,12 +45,12 @@
     "build": "bun run build:ui-client && bun scripts/build-package.ts && tsc -p tsconfig.build.json && bun scripts/fix-generated-types.ts",
     "build:ui-client": "bun scripts/build-ui-client.ts",
     "check:ui-client": "bun scripts/build-ui-client.ts --check",
-    "prepack": "bun run check:ui-client && bun run build",
+    "prepack": "bun run --cwd ../hono-door build && bun run check:ui-client && bun run build",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "hono": "^4.10.7",
-    "hono-door": "workspace:^",
+    "hono-door": ">=0.1.0 <1.0.0",
     "qrcode-terminal": "^0.12.0",
     "zod": "^3.25.76"
   },

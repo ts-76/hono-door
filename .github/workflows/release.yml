@@ -54,8 +54,10 @@ jobs:
       - name: Show npm version after upgrade
         run: npm --version
 
+      - name: Disable npm workspace detection for release
+        run: node scripts/disable-npm-workspaces-for-release.mjs
+
       - name: Publish release
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          NPM_CONFIG_PROVENANCE: true
         run: bun run release
