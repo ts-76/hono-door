@@ -92,8 +92,6 @@ export type ShortLinkIssueLinkRoomInput =
   | string
   | {
       id: string
-      title?: string | undefined
-      body?: string | undefined
     }
 
 export type ShortLinkIssueLinkInput = {
@@ -104,8 +102,6 @@ export type ShortLinkIssueLinkInput = {
   role?: string | undefined
   label?: string | undefined
   maxUses?: string | number | undefined
-  title?: string | undefined
-  body?: string | undefined
 }
 
 export type ShortLinkIssuedLink = {

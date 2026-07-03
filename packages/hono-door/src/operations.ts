@@ -110,18 +110,7 @@ async function issueLink<T extends HonoEnv>(
   const roomId = room.id ?? input.roomId
 
   if (roomId !== undefined) {
-    const roomInput: { title?: string; body?: string } = {}
-    const title = room.title ?? input.title
-    const body = room.body ?? input.body
-    if (title) roomInput.title = title
-    if (body) roomInput.body = body
-    if (roomInput.title !== undefined || roomInput.body !== undefined) {
-      const roomObject = resolve(config.rooms, c).getByName(roomId)
-      const state = await roomObject.setState(roomInput)
-      await recordRoomSnapshot(config, c, roomId, { title: state.title, body: state.body })
-    } else {
-      await recordRoomSnapshot(config, c, roomId)
-    }
+    await recordRoomSnapshot(config, c, roomId)
   }
 
   const role = input.role ?? 'viewer'
@@ -338,9 +327,8 @@ async function recordRoomSnapshot<T extends HonoEnv>(
   config: DoorConfig<T>,
   c: Context<T>,
   roomId: string,
-  stateInput?: { title: string; body: string },
 ) {
-  const state = stateInput ?? await resolve(config.rooms, c).getByName(roomId).getState()
+  const state = await resolve(config.rooms, c).getByName(roomId).getState()
   await resolve(config.registry, c).getByName('default').recordRoomSet(roomId, {
     title: state.title,
     body: state.body,
@@ -447,7 +435,7 @@ function parseIssueLinkTtl(
 
 function normalizeRoomInput(
   input: ShortLinkIssueLinkRoomInput | undefined,
-): { id?: string | undefined; title?: string | undefined; body?: string | undefined } {
+): { id?: string | undefined } {
   if (typeof input === 'string') {
     return { id: input }
   }

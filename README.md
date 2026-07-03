@@ -100,9 +100,9 @@ Object or D1 schema.
   `link.label`, `link.role`, and `link.expiresAt` after token validation.
 
 The package does not reject a repeated `roomId`. Calling `/admin/rooms/:roomId`
-again or issuing with title/body for the same `roomId` updates that room. For
-archive-safe custom workflows, do not reuse a `roomId` for another survey/event;
-create a fresh ID instead.
+again for the same `roomId` updates that room. Issuing a link reads the current
+room state and records it for archive review. For archive-safe custom workflows,
+do not reuse a `roomId` for another survey/event; create a fresh ID instead.
 
 For example, a survey app can use `roomId` as the stable key:
 
