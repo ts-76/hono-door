@@ -29,6 +29,20 @@ export default app
 See the repository README for Wrangler bindings, Durable Object migrations,
 admin API examples, archive search, and token lifecycle details.
 
+## Stable Room IDs
+
+Use `roomId` as the stable application-owned key for custom content. The same
+`roomId` resolves to the same `Room` Durable Object, and the Registry stores one
+row per `room_id`. Reusing a `roomId` updates that room; it does not create a
+second room. For survey or event systems, create a fresh `roomId` per public
+survey/event and use it as the foreign key in your own DO or D1 data.
+
+Public renderers receive `link.roomId`, `link.linkId`, `link.tokenHash`,
+`link.label`, `link.role`, and `link.expiresAt` after token validation, so they
+can load application data by `roomId`. Manual archive, revoke, and expiry do
+not change `roomId`; reissue creates a new token hash while keeping the link's
+current room.
+
 `hono-door` uses Cloudflare Durable Object SQLite storage directly through
 `ctx.storage.sql.exec()` with bound parameters. The package manages each Durable
 Object's internal SQLite schema with an in-object migration table, but your

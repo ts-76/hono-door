@@ -70,6 +70,59 @@ output. That CLI dependency is separate from the `hono-door` core package.
 - The sample Worker uses `renderSamplePublicPage` to show how application-owned
   public UI can read `link.roomId`, `link.label`, and room state.
 
+## Stable Room IDs
+
+Treat `roomId` as the stable application-owned identifier for the content behind
+a public link. For custom systems such as surveys, issue a new `roomId` for each
+public survey/event and use that value as the foreign key in your own Durable
+Object or D1 schema.
+
+`hono-door` keeps `roomId` unique as a storage address:
+
+- `ROOMS.getByName(roomId)` always resolves the same `Room` Durable Object.
+- `Registry.rooms.room_id` is a primary key, so duplicate room rows are not
+  created.
+- Public renderers receive `link.roomId`, `link.linkId`, `link.tokenHash`,
+  `link.label`, `link.role`, and `link.expiresAt` after token validation.
+
+The package does not reject a repeated `roomId`. Calling `/admin/rooms/:roomId`
+again or issuing with title/body for the same `roomId` updates that room. For
+archive-safe custom workflows, do not reuse a `roomId` for another survey/event;
+create a fresh ID instead.
+
+For example, a survey app can use `roomId` as the stable key:
+
+```sql
+CREATE TABLE survey_rooms (
+  room_id TEXT PRIMARY KEY,
+  title TEXT NOT NULL
+);
+
+CREATE TABLE survey_responses (
+  id TEXT PRIMARY KEY,
+  room_id TEXT NOT NULL,
+  submitted_at INTEGER NOT NULL
+);
+```
+
+Then render the public page by reading your application data with
+`link.roomId`:
+
+```ts
+app.route('/l', door.public(async ({ c, link }) => {
+  const survey = await c.env.DB
+    .prepare('SELECT * FROM survey_rooms WHERE room_id = ?')
+    .bind(link.roomId)
+    .first()
+
+  return renderSurveyPage({ survey, link })
+}))
+```
+
+Manual archive, revoke, and TTL expiry do not change `roomId` or `tokenHash`.
+Reissue creates a new token and therefore a new `tokenHash`, but still uses the
+link's current `roomId`.
+
 Example issued URL:
 
 ```text
@@ -205,7 +258,8 @@ The repo Worker mounts:
 | `GET` | `/admin/ui` | none | Browser admin UI shell; actions require a UI session |
 | `POST` | `/admin/ui` | UI session or form token | Issue a link from the UI |
 | `GET` | `/admin/ui/links` | none | Server-backed active link list shell; data API requires a UI session |
-| `GET` | `/admin/ui/archive` | none | Browser archive shell for inactive link search and reissue |
+| `GET` | `/admin/ui/archive` | none | Browser archive shell for inactive link search and admin-only preview |
+| `GET` | `/admin/ui/archive/:linkId/rooms/:roomId/preview` | UI session | Admin-only archived room preview |
 | `GET` | `/admin/ui/client.js` | none | Admin UI client script |
 | `POST` | `/admin/ui/api/session` | form token | Create UI session cookie |
 | `GET` | `/admin/ui/api/session` | UI session | Check UI session state |
@@ -217,6 +271,7 @@ The repo Worker mounts:
 | `GET` | `/admin/ui/api/links/:linkId/issue-policy` | UI session | UI proxy for issue policy |
 | `PUT` | `/admin/ui/api/links/:linkId/issue-policy` | UI session | UI proxy for issue policy update |
 | `POST` | `/admin/ui/api/links/:linkId/reissue` | UI session | UI proxy for revoke-and-reissue |
+| `POST` | `/admin/ui/api/links/:linkId/archive` | UI session | UI proxy for manual archive |
 | `GET` | `/admin/links` | bearer admin token | List active links |
 | `GET` | `/admin/links/archive` | bearer admin token | Search inactive archived links |
 | `GET` | `/admin/links/archive/:linkId` | bearer admin token | Archived link detail with room snapshot and token history |
@@ -225,6 +280,7 @@ The repo Worker mounts:
 | `GET` | `/admin/links/:linkId/issue-policy` | bearer admin token | Get link issue policy |
 | `PUT` | `/admin/links/:linkId/issue-policy` | bearer admin token | Update link issue policy |
 | `POST` | `/admin/links/:linkId/reissue` | bearer admin token | Revoke active tokens and issue a new token |
+| `POST` | `/admin/links/:linkId/archive` | bearer admin token | Revoke active tokens without issuing a new token |
 | `POST` | `/admin/links/:linkId/tokens` | bearer admin token | Issue a token |
 | `POST` | `/admin/links/:linkId/switch-room` | bearer admin token | Point link at another room |
 | `POST` | `/admin/links/:linkId/revoke` | bearer admin token | Revoke a token by hash |
@@ -268,7 +324,7 @@ Request fields:
 | Field | Required | Notes |
 | --- | --- | --- |
 | `ttl` | no | Defaults to `1h`; accepts duration strings such as `15m`, `1h`, `1d`, or a positive integer number of seconds |
-| `roomId` | no | Sets the link's current room when present |
+| `roomId` | no | Sets the link's current room when present; use a stable, application-owned ID and do not reuse it for another survey/event |
 | `label` | no | Token-scoped operator memo; not used for authorization and exposed to public renderers as `shortLink.label` |
 | `role` | no | Defaults to `viewer` and is exposed in `shortLink.role` |
 | `maxUses` | no | Positive integer as a number or string; omitted means unlimited until expiry/revoke |
@@ -390,8 +446,12 @@ Response:
 
 Archive detail is intended for post-publication review. It can show room
 title/body and token metadata, but it still cannot reconstruct old public URLs
-because raw tokens are not stored. Use `POST /admin/links/:linkId/reissue` to
-create a new URL and QR-ready token from the archived link.
+because raw tokens are not stored. The browser UI can reopen archived room
+content through an `/admin/ui` preview route that requires the signed admin
+session cookie and does not create a new public token.
+For custom systems, use the archived link's `linkId` and `roomId` to read the
+application-owned archive, survey, response, or snapshot data from your own
+Durable Object or D1 storage.
 If the link has an active token again, this endpoint returns `409` and the link
 belongs in the active-link list instead.
 
@@ -476,6 +536,25 @@ Reissue requires an existing link. It always revokes active tokens for the link
 before issuing the new token. The raw token is returned only in this response
 and is not stored.
 
+### Archive Before TTL
+
+```bash
+curl -sS -X POST "$SHORT_LINK_ADMIN_BASE_URL/admin/links/summer-event/archive" \
+  -H "Authorization: Bearer $SHORT_LINK_ADMIN_TOKEN"
+```
+
+Response:
+
+```json
+{"linkId":"summer-event","archived":true,"revokedTokenCount":1}
+```
+
+Manual archive revokes currently active tokens without issuing a replacement
+token. The link disappears from `/admin/links` immediately and can be reviewed
+from `/admin/links/archive` or the browser archive UI. Archived room previews
+remain admin-session-only and do not make the link public again.
+Manual archive does not change `roomId` or rewrite token hashes.
+
 ### Link Status
 
 ```bash
@@ -499,8 +578,10 @@ Response:
 tokens: non-revoked, non-expired tokens that have not reached `maxUses`.
 Expired token rows are retained for archive analysis. Expired links do not
 appear in `/admin/links` or the browser active-link list, but they can be found
-from `/admin/links/archive` and reissued with
-`POST /admin/links/:linkId/reissue`.
+from `/admin/links/archive`. Browser archive previews require an admin UI
+session and do not make the link public again. Use
+`POST /admin/links/:linkId/reissue` only when you intentionally want a new
+public URL and QR-ready token.
 
 ### Switch Link Room
 
@@ -587,6 +668,9 @@ examples above for status and revoke until CLI wrappers are added.
 - The admin UI issues links for an existing or application-managed `roomId`; it
   does not edit room title/body content. Use `/admin/rooms/:roomId` or a custom
   application UI for room content.
+- Treat `roomId` as a stable application key. The same `roomId` resolves to the
+  same `Room` Durable Object and Registry room row; repeated writes update that
+  room, so issue a fresh `roomId` for each survey/event instead of reusing one.
 - The built-in public page is intentionally not a room content UI. Production
   applications should pass `door.public(({ link }) => ...)` and render their
   own content using `link.roomId`, `link.label`, and application data.
@@ -612,6 +696,7 @@ examples above for status and revoke until CLI wrappers are added.
    the raw token once.
 3. `PublicLink` stores the link issue policy: TTL, role, label, and `maxUses`.
 4. If `roomId` is included, the link's current room is updated at issue time.
+   Use a stable, non-reused `roomId` for archive-safe application data.
 5. `Registry` records the link as a server-side list candidate.
 6. Public access validates the raw token against the stored hash.
 7. Browser query-token access sets an HTTP-only cookie and redirects without
@@ -674,3 +759,23 @@ bun run check
 For documentation-only changes, at minimum review the changed Markdown and make
 sure any command examples still match `package.json`, `wrangler.jsonc`, and the
 mounted routes in `src/index.tsx`.
+
+## Maintainer Release Flow
+
+Package releases are automated from `main` with semantic-release. The release
+workflow publishes both npm packages:
+
+- `hono-door`
+- `hono-door-ui`
+
+Use conventional commits (`feat:`, `fix:`, etc.) so semantic-release can choose
+the next version. Before the first automated publish, configure npm trusted
+publishing for this GitHub repository and both package names so the workflow can
+publish with provenance through GitHub OIDC.
+
+Normal release flow:
+
+1. Open a pull request against `main`.
+2. Wait for CI to pass.
+3. Merge the pull request.
+4. Let the `Release` workflow publish packages and create the GitHub Release.

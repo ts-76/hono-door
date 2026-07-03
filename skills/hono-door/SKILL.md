@@ -142,6 +142,10 @@ const door = createDoor<AppEnv>({
 - Issuing a link returns a public URL containing the raw token.
 - The optional admin UI issues links for a `roomId`; it does not edit room
   content. Use the admin API, CLI, or application-specific UI to set room data.
+- Treat `roomId` as a stable application-owned key. The same `roomId` maps to
+  the same `Room` Durable Object and one Registry room row. Repeated writes
+  update that room, so allocate a fresh `roomId` for each survey/event instead
+  of reusing one.
 - `door.public()` has only a minimal fallback page. Production integrations
   should pass a custom renderer for application content.
 - Raw public tokens are returned only by issue/reissue responses.
@@ -158,6 +162,9 @@ const door = createDoor<AppEnv>({
 - Inactive archives include expired, revoked, and max-use reached links with no
   active token. Archive search matches link ID, room ID, token label, room
   title, and room body.
+- Manual archive, revoke, and expiry do not change `roomId` or `tokenHash`.
+  Reissue creates a new token and therefore a new `tokenHash`, while using the
+  link's current `roomId`.
 - Expired token rows are retained for future archive detail, but rows deleted by
   older cleanup behavior cannot be recovered.
 

@@ -54,7 +54,8 @@ Payload notes:
 
 - `ttl` defaults to `1h`; accepts duration strings such as `15m`, `1h`, `1d`,
   or a positive integer number of seconds.
-- `roomId` changes the link's current room when present.
+- `roomId` changes the link's current room when present. Treat it as a stable
+  application-owned key and allocate a fresh ID for each survey/event.
 - `label` is an operator memo, not an auth field.
 - `role` defaults to `viewer` and is exposed in `shortLink.role`.
 - `maxUses` accepts a positive integer as a number or string; omit it for no
@@ -139,6 +140,18 @@ curl -sS "$SHORT_LINK_ADMIN_BASE_URL/admin/links/archive/summer-event" \
 Archive search returns links with no active tokens, including expired, revoked,
 and max-use reached links. Detail responses include room title/body snapshots
 and token metadata, but not old raw tokens.
+For custom systems, use `linkId` and `roomId` from archive detail to load
+application-owned survey, response, or snapshot data from DO/D1 storage.
+
+Manual archive before TTL:
+
+```bash
+curl -sS -X POST "$SHORT_LINK_ADMIN_BASE_URL/admin/links/summer-event/archive" \
+  -H "Authorization: Bearer $SHORT_LINK_ADMIN_TOKEN"
+```
+
+Manual archive revokes active tokens without issuing a replacement and does not
+change `roomId` or existing token hashes.
 
 ## Switch Room And Revoke
 
@@ -185,8 +198,8 @@ bun run link:switch --link summer-event --room room-b
 ```
 
 Current CLI wrappers are `token:issue`, `room:set`, and `link:switch`.
-Use curl for status, token listing, archive search, issue-policy, reissue, and
-revoke unless new CLI wrappers have been added.
+Use curl for status, token listing, archive search, manual archive,
+issue-policy, reissue, and revoke unless new CLI wrappers have been added.
 
 ## Verification Flow
 

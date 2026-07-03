@@ -23,6 +23,7 @@ export { defaultPublicPage } from './default-page'
 export { createDoor } from './short-link'
 export type {
   ShortLinkBindings,
+  ShortLinkArchivedLink,
   ShortLinkArchiveSearchInput,
   ShortLinkContext,
   ShortLinkEnv,

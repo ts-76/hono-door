@@ -1,6 +1,16 @@
 import { adminUiCss } from './styles'
 import type { AdminUiPageInput } from './types'
 
+type ArchiveRoomPreviewInput = {
+  linkId: string
+  room: {
+    roomId: string
+    title?: string | undefined
+    body?: string | undefined
+    updatedAt: string
+  }
+}
+
 export function renderAdminUiPage(input: AdminUiPageInput = {}) {
   return (
     <html lang="ja">
@@ -96,7 +106,7 @@ export function renderAdminArchivePage(input: AdminUiPageInput = {}) {
           <header>
             <h1>アーカイブ</h1>
             <p class="lead">
-              期限切れや無効化済みのリンクを検索し、投稿内容と履歴を確認して再発行します。
+              期限切れや無効化済みのリンクを検索し、投稿内容と履歴を管理画面内で確認します。
             </p>
             <nav class="nav">
               <a href="/admin/ui">発行</a>
@@ -109,7 +119,7 @@ export function renderAdminArchivePage(input: AdminUiPageInput = {}) {
 
           <section class="result">
             <p class="hint">
-              raw token は保存していないため過去 URL は再表示できません。必要な場合は再発行で新しい URL と QR を作成します。
+              raw token は保存していないため過去 URL は再表示できません。投稿内容の再閲覧は管理セッション必須のプレビューで行います。
             </p>
             <div id="admin-archive-root" aria-live="polite"></div>
           </section>
@@ -120,6 +130,53 @@ export function renderAdminArchivePage(input: AdminUiPageInput = {}) {
           dangerouslySetInnerHTML={{ __html: jsonScript(input) }}
         ></script>
         <script type="module" src="/admin/ui/client.js"></script>
+      </body>
+    </html>
+  )
+}
+
+export function renderAdminArchivePreviewPage({ linkId, room }: ArchiveRoomPreviewInput) {
+  return (
+    <html lang="ja">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>{room.title ?? room.roomId}</title>
+        <style dangerouslySetInnerHTML={{ __html: adminUiCss }}></style>
+      </head>
+      <body>
+        <main>
+          <header>
+            <p class="eyebrow">管理プレビュー</p>
+            <h1>{room.title ?? room.roomId}</h1>
+            <p class="lead">
+              このページは管理セッションでのみ表示されます。公開 URL や新しい token は発行していません。
+            </p>
+            <nav class="nav">
+              <a href="/admin/ui/archive">アーカイブへ戻る</a>
+            </nav>
+          </header>
+
+          <section class="result">
+            <dl class="compact-meta">
+              <div>
+                <dt>Link ID</dt>
+                <dd>{linkId}</dd>
+              </div>
+              <div>
+                <dt>Room ID</dt>
+                <dd>{room.roomId}</dd>
+              </div>
+              <div>
+                <dt>更新日時</dt>
+                <dd>{room.updatedAt}</dd>
+              </div>
+            </dl>
+            <article class="archive-preview">
+              <p>{room.body ?? '本文なし'}</p>
+            </article>
+          </section>
+        </main>
       </body>
     </html>
   )

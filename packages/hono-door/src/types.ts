@@ -129,6 +129,12 @@ export type ShortLinkReissuedLink = ShortLinkIssuedLink & {
   revokedTokenCount: number
 }
 
+export type ShortLinkArchivedLink = {
+  linkId: string
+  archived: true
+  revokedTokenCount: number
+}
+
 export type ShortLinkArchiveSearchInput = {
   q?: string | undefined
 }

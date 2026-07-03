@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import type {
   DoorConfig,
+  ShortLinkArchivedLink,
   ShortLinkArchiveSearchInput,
   ShortLinkIssuePolicyInput,
   ShortLinkIssuedLink,
@@ -48,6 +49,10 @@ type CreateAdminApiOptions<T extends HonoEnv> = {
     c: Context<T>,
     linkId: string,
   ): Promise<ShortLinkOperationResult<ShortLinkReissuedLink>>
+  archiveLink(
+    c: Context<T>,
+    linkId: string,
+  ): Promise<ShortLinkOperationResult<ShortLinkArchivedLink>>
 }
 
 const issueTokenSchema = z.object({
@@ -89,6 +94,7 @@ export function createAdminApi<T extends HonoEnv>({
   getIssuePolicy,
   updateIssuePolicy,
   reissueLink,
+  archiveLink,
 }: CreateAdminApiOptions<T>): Hono<T> {
   const routes = new Hono<T>()
 
@@ -145,6 +151,12 @@ export function createAdminApi<T extends HonoEnv>({
 
   routes.post('/links/:linkId/reissue', async (c) => {
     const result = await reissueLink(c, c.req.param('linkId'))
+    if (!result.ok) return c.json({ error: result.error }, result.status)
+    return c.json(result.value)
+  })
+
+  routes.post('/links/:linkId/archive', async (c) => {
+    const result = await archiveLink(c, c.req.param('linkId'))
     if (!result.ok) return c.json({ error: result.error }, result.status)
     return c.json(result.value)
   })

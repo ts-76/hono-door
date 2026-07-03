@@ -17,6 +17,11 @@ h1 {
   font-size: 2rem;
   margin: 0 0 8px;
 }
+.eyebrow {
+  margin: 0 0 8px;
+  color: #1769aa;
+  font-weight: 700;
+}
 header {
   margin-bottom: 24px;
 }
@@ -134,6 +139,10 @@ button,
 button.secondary {
   background: #e7ecf2;
   color: #15171a;
+}
+button.danger {
+  background: #b42318;
+  color: #ffffff;
 }
 button:disabled {
   cursor: wait;
@@ -295,6 +304,17 @@ dd {
 .token-list h3 {
   margin: 0;
   font-size: 1rem;
+}
+.archive-preview {
+  display: grid;
+  gap: 14px;
+  padding-top: 16px;
+  border-top: 1px solid #d8dde3;
+}
+.archive-preview p {
+  margin: 0;
+  line-height: 1.8;
+  white-space: pre-wrap;
 }
 .token-item {
   min-width: 0;

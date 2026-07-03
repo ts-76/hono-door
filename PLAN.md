@@ -38,6 +38,7 @@ https://example.workers.dev/l/summer-event?token=<short-lived-token>
   - `door.getIssuePolicy()`
   - `door.updateIssuePolicy()`
   - `door.reissueLink()`
+  - `door.archiveLink()`
   - `door.validateAdminToken()`
   - `door.adminSessionSecret()`
 - `hono-door-ui` package API
@@ -51,11 +52,13 @@ https://example.workers.dev/l/summer-event?token=<short-lived-token>
   - TTL expiry
   - revoke by token hash
   - revoke active tokens and reissue
+  - revoke active tokens without reissue for manual archive
   - optional `maxUses`
   - active-token status count
   - retain expired token rows for archive analysis
 - `Room` Durable Object
   - plain title/body state
+  - no additional content modes for now; rich/custom rendering belongs in the application renderer
   - updated timestamp
 - `Registry` Durable Object
   - issued-link candidate index for server-side lists
@@ -68,6 +71,7 @@ https://example.workers.dev/l/summer-event?token=<short-lived-token>
   - `GET /admin/links/:linkId/issue-policy`
   - `PUT /admin/links/:linkId/issue-policy`
   - `POST /admin/links/:linkId/reissue`
+  - `POST /admin/links/:linkId/archive`
   - `POST /admin/links/:linkId/tokens`
   - `POST /admin/links/:linkId/switch-room`
   - `POST /admin/links/:linkId/revoke`
@@ -82,6 +86,8 @@ https://example.workers.dev/l/summer-event?token=<short-lived-token>
   - server-side active link list using the admin API
   - token detail list from `PublicLink` without raw URL/QR reconstruction
   - issue policy edit and revoke-and-reissue URL/QR flow
+  - manual archive before TTL by revoking active tokens without reissue
+  - admin-session-only archive preview without issuing a new public token
   - signed HttpOnly admin session cookie scoped to `/admin/ui`
   - UI-only proxy API under `/admin/ui/api/*`
   - distributed as `hono-door-ui`, not as a `hono-door` subpath export
@@ -94,12 +100,18 @@ linkId: summer-event
   token hashes: short-lived access grants
 
 room-a
-  title/body/mode for the published page
+  title/body for the published page
 ```
 
 `PublicLink.currentRoomId` is the routing pointer. Tokens are scoped to the link
 ID, not to a fixed room snapshot, so switching a link's current room changes what
 valid existing link tokens render.
+
+`roomId` is treated as a stable application-owned key. The same `roomId` maps to
+the same `Room` Durable Object and one Registry room row. The package preserves
+API compatibility by allowing repeated writes to update that room, so
+archive-safe custom systems should allocate a fresh `roomId` per survey/event
+and use it as their DO/D1 foreign key.
 
 ## Security Model
 
@@ -129,9 +141,3 @@ valid existing link tokens render.
   - documented secret rotation procedure
 - Add admin UI revoke/status controls so operators do not need curl for token
   lifecycle operations.
-- Convert the sample public renderer in `src/sample-public-page.ts` from
-  string-built HTML to `hono/jsx` so the example demonstrates a typed custom UI.
-- Change archived-link reissue behavior so archived content can be reviewed or
-  accessed by admins without making the link public again. The archive action
-  should avoid creating a newly active public URL.
-- Decide whether room content should support modes beyond `plain`.

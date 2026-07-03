@@ -23,6 +23,12 @@ type AdminUiResult = {
   revokedTokenCount?: number
 }
 
+type ArchiveResult = {
+  linkId: string
+  archived: true
+  revokedTokenCount: number
+}
+
 type AdminIssuePayload = {
   values?: AdminUiValues
   result?: AdminUiResult
@@ -93,7 +99,7 @@ type LinkDetailsState =
 
 type ArchiveDetailState =
   | { status: 'loading' }
-  | { status: 'loaded'; detail: ArchiveLinkDetail; reissueResult?: AdminUiResult; message?: string }
+  | { status: 'loaded'; detail: ArchiveLinkDetail }
   | { status: 'error'; error: string }
 
 function IssueApp({
@@ -300,6 +306,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
   const [details, setDetails] = useState<Record<string, LinkDetailsState>>({})
   const [openLinkIds, setOpenLinkIds] = useState<string[]>([])
   const [pendingReissueLinkId, setPendingReissueLinkId] = useState<string>()
+  const [pendingArchiveLinkId, setPendingArchiveLinkId] = useState<string>()
 
   useEffect(() => {
     if (authenticated && status === 'idle') {
@@ -451,6 +458,42 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
     }
   }
 
+  const archiveLink = async (linkId: string) => {
+    const current = details[linkId]
+    if (!authenticated || current?.status !== 'loaded' || pendingArchiveLinkId !== undefined) return
+    if (!window.confirm('このリンクの有効な token を無効化してアーカイブします。よろしいですか？')) return
+
+    setPendingArchiveLinkId(linkId)
+    try {
+      const response = await fetch(`/admin/ui/api/links/${encodeURIComponent(linkId)}/archive`, {
+        method: 'POST',
+        credentials: 'same-origin',
+      })
+
+      if (!response.ok) {
+        const error = await responseError(response)
+        setDetails((records) => ({
+          ...records,
+          [linkId]: { status: 'error', error },
+        }))
+        return
+      }
+
+      const result = (await response.json()) as ArchiveResult
+      setDetails((records) => ({
+        ...records,
+        [linkId]: {
+          ...current,
+          message: `${result.revokedTokenCount} 件の有効 token を無効化してアーカイブしました。`,
+        },
+      }))
+      setOpenLinkIds((currentOpen) => currentOpen.filter((openLinkId) => openLinkId !== linkId))
+      void loadLinks()
+    } finally {
+      setPendingArchiveLinkId(undefined)
+    }
+  }
+
   const logout = () => {
     setAuthenticated(false)
     setStatus('idle')
@@ -458,6 +501,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
     setDetails({})
     setOpenLinkIds([])
     setPendingReissueLinkId(undefined)
+    setPendingArchiveLinkId(undefined)
   }
 
   if (!authenticated) {
@@ -545,7 +589,9 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
                   state={details[link.linkId]}
                   onSavePolicy={(input) => void saveIssuePolicy(link.linkId, input)}
                   onReissue={() => void reissueLink(link.linkId)}
+                  onArchive={() => void archiveLink(link.linkId)}
                   reissuing={pendingReissueLinkId === link.linkId}
+                  archiving={pendingArchiveLinkId === link.linkId}
                 />
               </div>
             </details>
@@ -567,12 +613,16 @@ function LinkDetails({
   state,
   onSavePolicy,
   onReissue,
+  onArchive,
   reissuing,
+  archiving,
 }: {
   state: LinkDetailsState | undefined
   onSavePolicy(input: IssuePolicyInput): void
   onReissue(): void
+  onArchive(): void
   reissuing: boolean
+  archiving: boolean
 }) {
   if (!state || state.status === 'loading') {
     return <p class="empty-state">詳細を取得中です。</p>
@@ -585,7 +635,14 @@ function LinkDetails({
   return (
     <div class="link-details-content">
       {state.message ? <p class="hint status-message">{state.message}</p> : null}
-      <IssuePolicyForm policy={state.policy} onSave={onSavePolicy} onReissue={onReissue} reissuing={reissuing} />
+      <IssuePolicyForm
+        policy={state.policy}
+        onSave={onSavePolicy}
+        onReissue={onReissue}
+        onArchive={onArchive}
+        reissuing={reissuing}
+        archiving={archiving}
+      />
       {state.reissueResult ? <ReissuedResult result={state.reissueResult} /> : null}
       <TokenList tokens={state.tokens} />
     </div>
@@ -596,12 +653,16 @@ function IssuePolicyForm({
   policy,
   onSave,
   onReissue,
+  onArchive,
   reissuing,
+  archiving,
 }: {
   policy: IssuePolicy
   onSave(input: IssuePolicyInput): void
   onReissue(): void
+  onArchive(): void
   reissuing: boolean
+  archiving: boolean
 }) {
   return (
     <form
@@ -643,8 +704,11 @@ function IssuePolicyForm({
         <button type="submit" class="secondary">
           発行設定を保存
         </button>
-        <button type="button" disabled={reissuing} onClick={onReissue}>
+        <button type="button" disabled={reissuing || archiving} onClick={onReissue}>
           {reissuing ? '再発行中' : 'URL/QR を再発行'}
+        </button>
+        <button type="button" class="danger" disabled={reissuing || archiving} onClick={onArchive}>
+          {archiving ? 'アーカイブ中' : '手動アーカイブ'}
         </button>
       </div>
     </form>
@@ -726,7 +790,6 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
   const [status, setStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   const [error, setError] = useState<string>()
   const [details, setDetails] = useState<Record<string, ArchiveDetailState>>({})
-  const [pendingReissueLinkId, setPendingReissueLinkId] = useState<string>()
 
   useEffect(() => {
     if (authenticated && status === 'idle') {
@@ -788,51 +851,11 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
     }))
   }
 
-  const reissueArchivedLink = async (linkId: string) => {
-    const current = details[linkId]
-    if (!authenticated || current?.status !== 'loaded' || pendingReissueLinkId !== undefined) return
-
-    setPendingReissueLinkId(linkId)
-    try {
-      const response = await fetch(`/admin/ui/api/links/${encodeURIComponent(linkId)}/reissue`, {
-        method: 'POST',
-        credentials: 'same-origin',
-      })
-      if (!response.ok) {
-        const error = await responseError(response)
-        setDetails((records) => ({
-          ...records,
-          [linkId]: { status: 'error', error },
-        }))
-        return
-      }
-
-      const result = (await response.json()) as AdminUiResult
-      const detailResponse = await fetch(`/admin/ui/api/links/archive/${encodeURIComponent(linkId)}`, {
-        credentials: 'same-origin',
-      })
-      const nextDetail = detailResponse.ok ? ((await detailResponse.json()) as ArchiveLinkDetail) : current.detail
-      setDetails((records) => ({
-        ...records,
-        [linkId]: {
-          status: 'loaded',
-          detail: nextDetail,
-          reissueResult: result,
-          message: '新しい URL と QR を再発行しました。',
-        },
-      }))
-      void loadArchive()
-    } finally {
-      setPendingReissueLinkId(undefined)
-    }
-  }
-
   const logout = () => {
     setAuthenticated(false)
     setStatus('idle')
     setLinks([])
     setDetails({})
-    setPendingReissueLinkId(undefined)
   }
 
   if (!authenticated) {
@@ -907,9 +930,8 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
               <summary>投稿内容と履歴を見る</summary>
               <div class="link-detail-body">
                 <ArchiveDetails
+                  linkId={link.linkId}
                   state={details[link.linkId]}
-                  onReissue={() => void reissueArchivedLink(link.linkId)}
-                  reissuing={pendingReissueLinkId === link.linkId}
                 />
               </div>
             </details>
@@ -921,13 +943,11 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
 }
 
 function ArchiveDetails({
+  linkId,
   state,
-  onReissue,
-  reissuing,
 }: {
+  linkId: string
   state: ArchiveDetailState | undefined
-  onReissue(): void
-  reissuing: boolean
 }) {
   if (!state || state.status === 'loading') {
     return <p class="empty-state">詳細を取得中です。</p>
@@ -939,19 +959,15 @@ function ArchiveDetails({
 
   return (
     <div class="link-details-content">
-      {state.message ? <p class="hint status-message">{state.message}</p> : null}
-      <div class="step-controls">
-        <button type="button" disabled={reissuing} onClick={onReissue}>
-          {reissuing ? '再発行中' : 'URL/QR を再発行'}
-        </button>
-      </div>
-      {state.reissueResult ? <ReissuedResult result={state.reissueResult} /> : null}
+      <p class="hint">
+        アーカイブの再閲覧は管理セッション必須のプレビューで行います。公開 URL や新しい token は発行しません。
+      </p>
       <section class="archive-room">
         <h3>投稿内容</h3>
         {state.detail.rooms.length === 0 ? (
           <p class="empty-state">保存済みの投稿内容はありません。</p>
         ) : (
-          state.detail.rooms.map((room) => <RoomCard room={room} key={room.roomId} />)
+          state.detail.rooms.map((room) => <RoomCard linkId={linkId} room={room} key={room.roomId} />)
         )}
       </section>
       <ArchiveTokenList tokens={state.detail.tokens} />
@@ -969,7 +985,9 @@ function RoomPreview({ room }: { room?: RoomSnapshot | undefined }) {
   )
 }
 
-function RoomCard({ room }: { room: RoomSnapshot }) {
+function RoomCard({ linkId, room }: { linkId: string; room: RoomSnapshot }) {
+  const previewPath = `/admin/ui/archive/${encodeURIComponent(linkId)}/rooms/${encodeURIComponent(room.roomId)}/preview`
+
   return (
     <article class="token-item">
       <dl>
@@ -990,6 +1008,11 @@ function RoomCard({ room }: { room: RoomSnapshot }) {
           <dd>{room.updatedAt}</dd>
         </div>
       </dl>
+      <div class="actions">
+        <a href={previewPath} target="_blank" rel="noreferrer">
+          管理プレビューを開く
+        </a>
+      </div>
     </article>
   )
 }

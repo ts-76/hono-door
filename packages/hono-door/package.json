@@ -38,6 +38,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "bun scripts/build-package.ts && tsc -p tsconfig.build.json",
     "prepack": "bun run build",

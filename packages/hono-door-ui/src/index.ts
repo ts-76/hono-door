@@ -8,6 +8,7 @@ import type {
   RegistryArchiveLinkCandidate,
   RegistryArchiveLinkDetail,
   RegistryLinkSummary,
+  ShortLinkArchivedLink,
   PublicLinkIssuePolicy,
   ShortLinkArchiveSearchInput,
   ShortLinkIssuePolicyInput,
@@ -19,6 +20,7 @@ import type {
 import {
   generateQrCodeSvg,
   renderAdminArchivePage,
+  renderAdminArchivePreviewPage,
   renderAdminLinkListPage,
   renderAdminUiPage,
   type AdminUiResult,
@@ -61,6 +63,10 @@ export type AdminUiShortLink<T extends HonoEnv> = {
     c: Context<T>,
     linkId: string,
   ): Promise<ShortLinkOperationResult<ShortLinkReissuedLink>>
+  archiveLink(
+    c: Context<T>,
+    linkId: string,
+  ): Promise<ShortLinkOperationResult<ShortLinkArchivedLink>>
   adminSessionSecret(c: Context<T>): Promise<ShortLinkOperationResult<string>>
 }
 
@@ -207,6 +213,16 @@ export function createDoorUi<T extends HonoEnv>(shortLink: AdminUiShortLink<T>):
     })
   })
 
+  routes.post('/ui/api/links/:linkId/archive', async (c) => {
+    const session = await readAdminSession(c, shortLink)
+    if (!session.ok) return c.json({ error: session.error }, session.status)
+
+    const result = await shortLink.archiveLink(c, c.req.param('linkId'))
+    if (!result.ok) return c.json({ error: result.error }, result.status)
+
+    return c.json(result.value)
+  })
+
   routes.get('/ui/links', async (c) => {
     const session = await readAdminSession(c, shortLink)
     return c.html(renderAdminLinkListPage({ authenticated: session.ok }))
@@ -214,6 +230,20 @@ export function createDoorUi<T extends HonoEnv>(shortLink: AdminUiShortLink<T>):
   routes.get('/ui/archive', async (c) => {
     const session = await readAdminSession(c, shortLink)
     return c.html(renderAdminArchivePage({ authenticated: session.ok }))
+  })
+  routes.get('/ui/archive/:linkId/rooms/:roomId/preview', async (c) => {
+    const session = await readAdminSession(c, shortLink)
+    if (!session.ok) return c.text(session.error, session.status)
+
+    const linkId = c.req.param('linkId')
+    const roomId = c.req.param('roomId')
+    const result = await shortLink.getArchivedLink(c, linkId)
+    if (!result.ok) return c.text(result.error, result.status)
+
+    const room = result.value.rooms.find((candidate) => candidate.roomId === roomId)
+    if (!room) return c.text('Archived room not found.', 404)
+
+    return c.html(renderAdminArchivePreviewPage({ linkId, room }))
   })
   routes.get('/ui', async (c) => {
     const session = await readAdminSession(c, shortLink)

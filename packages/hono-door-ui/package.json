@@ -38,6 +38,9 @@
     "README.md",
     "LICENSE"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "bun run build:ui-client && bun scripts/build-package.ts && tsc -p tsconfig.build.json && bun scripts/fix-generated-types.ts",
     "build:ui-client": "bun scripts/build-ui-client.ts",

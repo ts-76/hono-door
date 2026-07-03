@@ -264,6 +264,26 @@ export class Registry extends DurableObject<unknown> {
     return { revoked: result.rowsWritten > 0 }
   }
 
+  recordActiveTokensRevoked(linkId: string): { revokedTokenCount: number } {
+    const now = Date.now()
+    const result = this.ctx.storage.sql.exec(
+      `
+        UPDATE tokens
+        SET revoked_at = ?
+        WHERE
+          link_id = ?
+          AND revoked_at IS NULL
+          AND expires_at > ?
+          AND (max_uses IS NULL OR use_count < max_uses);
+      `,
+      now,
+      linkId,
+      now,
+    )
+
+    return { revokedTokenCount: result.rowsWritten }
+  }
+
   listLinks(): { links: RegistryLinkSummary[] } {
     const rows = this.ctx.storage.sql
       .exec<LinkSummaryRow>(

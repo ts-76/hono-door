@@ -48,6 +48,7 @@ Use these pages:
 
 - `/admin/ui`: issue URLs and QR codes
 - `/admin/ui/links`: list active links and open details
+- `/admin/ui/archive`: search inactive archives and open admin-only previews
 
 The UI proxy APIs are under `/admin/ui/api/*` and are intended for the browser
 UI session, not CLI clients.
@@ -60,6 +61,11 @@ UI session, not CLI clients.
   operator opens details or reissues.
 - Do not attempt to reconstruct old URLs or QR codes from list endpoints. Raw
   tokens are not stored.
+- Treat `roomId` as the stable application-owned key. The UI passes it through
+  and archive previews use `linkId` and `roomId`; custom survey data should live
+  in the host app's DO/D1 storage keyed by `roomId`.
+- Manual archive from the UI revokes active tokens before TTL without creating a
+  replacement token, changing `roomId`, or changing existing token hashes.
 - Reissue from the UI should:
   - disable the reissue button while the request is in flight,
   - display the new URL and QR returned by the reissue response,

@@ -1,13 +1,19 @@
 # hono-door-ui
 
 Optional browser admin UI for `hono-door`. It provides URL and QR issuing,
-active link listing, inactive archive search, issue-policy editing, and reissue
-flows.
+active link listing, inactive archive search, admin-only archive previews,
+issue-policy editing, active-link reissue flows, and manual archive before TTL.
 
 The issue UI accepts `linkId`, `roomId`, TTL, label, and max-use settings. It
 submits directly from that form and then shows the issued URL/QR result. It does
 not edit room content; use the core admin API or application-specific routes
 for custom room data.
+
+Treat `roomId` as a stable application-owned key. The UI will pass it through to
+`hono-door`; your app should create a fresh `roomId` for each survey/event and
+use that ID to load custom DO or D1 data. Archive previews stay admin-only and
+use the archived link's `linkId` and `roomId`; they do not create a new token or
+public URL.
 
 Install with the core package:
 

@@ -10,6 +10,7 @@ import type { RegistryArchiveLinkCandidate, RegistryArchiveLinkDetail, RegistryL
 import { constantTimeEqual } from './services/token'
 import type {
   DoorConfig,
+  ShortLinkArchivedLink,
   ShortLinkArchiveSearchInput,
   ShortLinkIssuePolicyInput,
   ShortLinkIssuedLink,
@@ -51,6 +52,9 @@ export function createDoorOperations<T extends HonoEnv>(config: DoorConfig<T>) {
     },
     reissueLink(c: Context<T>, linkId: string) {
       return reissueLink(config, c, linkId)
+    },
+    archiveLink(c: Context<T>, linkId: string) {
+      return archiveLink(config, c, linkId)
     },
     adminSessionSecret(c: Context<T>) {
       return adminSessionSecret(config, c)
@@ -321,6 +325,30 @@ async function reissueLink<T extends HonoEnv>(
     value: {
       ...issuedLink(linkId, url.toString(), result),
       reissued: true,
+      revokedTokenCount: result.revokedTokenCount,
+    },
+  }
+}
+
+async function archiveLink<T extends HonoEnv>(
+  config: DoorConfig<T>,
+  c: Context<T>,
+  linkId: string,
+): Promise<ShortLinkOperationResult<ShortLinkArchivedLink>> {
+  const link = resolve(config.publicLinks, c).getByName(linkId)
+  const status = await link.getStatus()
+  if (!status.exists) {
+    return { ok: false, status: 404, error: 'Link not found.' }
+  }
+
+  const result = await link.revokeActiveTokens()
+  await resolve(config.registry, c).getByName('default').recordActiveTokensRevoked(linkId)
+
+  return {
+    ok: true,
+    value: {
+      linkId,
+      archived: true,
       revokedTokenCount: result.revokedTokenCount,
     },
   }
