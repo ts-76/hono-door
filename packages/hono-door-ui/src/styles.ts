@@ -226,7 +226,9 @@ button:focus-visible,
 .actions a:focus-visible,
 .inline-link:focus-visible,
 .nav a:focus-visible,
-.link-detail summary:focus-visible {
+.link-detail summary:focus-visible,
+.detail-disclosure > summary:focus-visible,
+.token-item > summary:focus-visible {
   outline: 3px solid var(--color-primary-focus);
   outline-offset: 2px;
 }
@@ -448,7 +450,7 @@ dd {
 }
 .link-details-content {
   display: grid;
-  gap: 18px;
+  gap: 12px;
   min-width: 0;
 }
 .detail-section {
@@ -467,12 +469,6 @@ dd {
   font-size: var(--text-section);
   line-height: 1.45;
 }
-.danger-zone {
-  padding: var(--space-md);
-  border: 1px solid color-mix(in srgb, var(--color-danger) 18%, var(--color-line));
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--color-danger-soft) 48%, var(--color-surface));
-}
 .status-message {
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--color-primary) 22%, var(--color-primary-soft));
@@ -490,8 +486,8 @@ dd {
 .token-list {
   display: grid;
   gap: 0;
-  border-top: 1px solid var(--color-line);
-  border-bottom: 1px solid var(--color-line);
+  border-top: 0;
+  border-bottom: 0;
   background: transparent;
 }
 .token-list > h3 {
@@ -510,12 +506,75 @@ dd {
 }
 .archive-room {
   display: grid;
-  gap: 12px;
+  gap: var(--space-sm);
 }
 .archive-room h3,
 .token-list h3 {
   margin: 0;
   font-size: var(--text-section);
+}
+.archive-room-item {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md) var(--space-lg);
+  align-items: start;
+  min-width: 0;
+  padding: 10px 0 14px;
+  border-bottom: 1px solid var(--color-line);
+}
+.archive-room-copy {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+.archive-room-item h4 {
+  margin: 0;
+  color: var(--color-ink);
+  font-size: var(--text-ui);
+  line-height: 1.45;
+}
+.inline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px var(--space-md);
+}
+.inline-meta div {
+  display: flex;
+  gap: 6px;
+}
+.inline-meta dt,
+.inline-meta dd {
+  font-size: var(--text-help);
+}
+.detail-disclosure {
+  display: grid;
+  gap: 0;
+  border-bottom: 1px solid var(--color-line);
+}
+.detail-disclosure > summary {
+  width: 100%;
+  border-radius: var(--radius-sm);
+  padding: 10px 0;
+  color: var(--color-body);
+  font-size: var(--text-ui);
+  font-weight: 600;
+  cursor: pointer;
+}
+.detail-disclosure > summary:hover {
+  color: var(--color-ink);
+}
+.detail-disclosure[open] {
+  padding-bottom: var(--space-md);
+}
+.danger-disclosure {
+  border-bottom-color: color-mix(in srgb, var(--color-danger) 18%, var(--color-line));
+}
+.danger-disclosure > summary {
+  color: var(--color-danger-text);
+}
+.danger-disclosure[open] {
+  display: grid;
+  gap: var(--space-sm);
 }
 .archive-preview {
   display: grid;
@@ -550,7 +609,7 @@ dd {
 }
 .token-item {
   min-width: 0;
-  padding: 12px 0;
+  padding: 0;
   border: 0;
   border-top: 1px solid var(--color-line);
   border-radius: 0;
@@ -559,8 +618,20 @@ dd {
 .token-item:first-child {
   border-top: 0;
 }
-.token-list > h3 + .token-item {
-  border-top: 0;
+.token-item > summary {
+  display: grid;
+  grid-template-columns: minmax(96px, .7fr) minmax(0, 1fr) minmax(150px, auto);
+  gap: var(--space-sm);
+  padding: 10px 0;
+  color: var(--color-body);
+  font-size: var(--text-meta);
+  cursor: pointer;
+}
+.token-item > summary:hover {
+  color: var(--color-ink);
+}
+.token-detail-body {
+  padding: 0 0 12px 20px;
 }
 .empty-state {
   margin: 0;
@@ -665,9 +736,6 @@ dd {
   .link-detail-body {
     border-top-color: var(--color-line);
   }
-  .danger-zone {
-    background: color-mix(in srgb, var(--color-danger-soft) 44%, var(--color-surface));
-  }
   .reissue-result {
     border-top-color: var(--color-line);
   }
@@ -682,6 +750,9 @@ dd {
   .link-detail summary {
     background: var(--color-surface-subtle);
     color: var(--color-ink);
+  }
+  .detail-disclosure {
+    border-color: var(--color-line);
   }
   .empty-state {
     color: var(--color-muted);
@@ -711,8 +782,17 @@ dd {
   button,
   .actions a,
   .nav a,
-  .link-detail summary {
+  .link-detail summary,
+  .detail-disclosure > summary,
+  .token-item > summary {
     min-height: 44px;
+  }
+  .archive-room-item {
+    display: grid;
+  }
+  .token-item > summary {
+    grid-template-columns: 1fr;
+    gap: 2px;
   }
   .issued-layout {
     grid-template-columns: 1fr;

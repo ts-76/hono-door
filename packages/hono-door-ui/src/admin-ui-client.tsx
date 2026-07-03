@@ -1095,9 +1095,6 @@ function ArchiveDetails({
 
   return (
     <div class="link-details-content">
-      <p class="hint">
-        {t.archiveDetailsHint}
-      </p>
       <section class="archive-room">
         <h3>{t.contentSection}</h3>
         {state.detail.rooms.length === 0 ? (
@@ -1106,16 +1103,21 @@ function ArchiveDetails({
           state.detail.rooms.map((room) => <RoomCard t={t} locale={locale} linkId={linkId} room={room} key={room.roomId} />)
         )}
       </section>
-      <ArchiveTokenList t={t} locale={locale} tokens={state.detail.tokens} />
-      <section class="detail-section danger-zone">
-        <h3>{t.dangerZone}</h3>
+      <details class="detail-disclosure">
+        <summary>
+          {t.tokenHistory} ({state.detail.tokens.length})
+        </summary>
+        <ArchiveTokenList t={t} locale={locale} tokens={state.detail.tokens} />
+      </details>
+      <details class="detail-disclosure danger-disclosure">
+        <summary>{t.dangerZone}</summary>
         <p class="hint">{t.deleteArchiveHint}</p>
         <div class="step-controls">
           <button type="button" class="danger" disabled={deleteDisabled} onClick={onDelete}>
             {deleting ? t.deletingArchive : t.deleteArchive}
           </button>
         </div>
-      </section>
+      </details>
     </div>
   )
 }
@@ -1141,30 +1143,24 @@ function RoomCard({ t, locale, linkId, room }: { t: AdminUiText; locale: AdminUi
   const previewPath = archivePreviewPath(linkId, room.roomId)
 
   return (
-    <article class="token-item">
-      <dl>
-        <div>
-          <dt>{t.contentId}</dt>
-          <dd>{room.roomId}</dd>
-        </div>
-        <div>
-          <dt>{t.title}</dt>
-          <dd>{room.title ?? t.none}</dd>
-        </div>
-        <div>
-          <dt>{t.body}</dt>
-          <dd>{room.body ?? t.none}</dd>
-        </div>
-        <div>
-          <dt>{t.updatedAt}</dt>
-          <dd>{formatDateTime(room.updatedAt, locale)}</dd>
-        </div>
-      </dl>
-      <div class="actions">
-        <a href={previewPath} target="_blank" rel="noreferrer">
-          {t.openAdminPreview}
-        </a>
+    <article class="archive-room-item">
+      <div class="archive-room-copy">
+        <h4>{room.title ?? room.roomId}</h4>
+        <p class="hint">{room.body ? truncate(room.body, 180) : t.noBody}</p>
+        <dl class="inline-meta">
+          <div>
+            <dt>{t.contentId}</dt>
+            <dd>{room.roomId}</dd>
+          </div>
+          <div>
+            <dt>{t.updatedAt}</dt>
+            <dd>{formatDateTime(room.updatedAt, locale)}</dd>
+          </div>
+        </dl>
       </div>
+      <a class="inline-link" href={previewPath} target="_blank" rel="noreferrer">
+        {t.openAdminPreview}
+      </a>
     </article>
   )
 }
@@ -1180,43 +1176,37 @@ function ArchiveTokenList({ t, locale, tokens }: { t: AdminUiText; locale: Admin
 
   return (
     <div class="token-list">
-      <h3>{t.tokenHistory}</h3>
       {tokens.map((token) => (
-        <article class="token-item" key={token.tokenHash}>
-          <dl>
-            <div>
-              <dt>{t.status}</dt>
-              <dd>{formatTokenState(token.state, t)}</dd>
-            </div>
-            <div>
-              <dt>{t.label}</dt>
-              <dd>{token.label ?? t.none}</dd>
-            </div>
-            <div>
-              <dt>{t.role}</dt>
-              <dd>{token.role}</dd>
-            </div>
-            <div>
-              <dt>{t.expires}</dt>
-              <dd>{formatDateTime(token.expiresAt, locale)}</dd>
-            </div>
-            <div>
-              <dt>{t.revokedAt}</dt>
-              <dd>{token.revokedAt ? formatDateTime(token.revokedAt, locale) : t.none}</dd>
-            </div>
-            <div>
-              <dt>{t.useCount}</dt>
-              <dd>
-                {token.useCount}
-                {token.maxUses ? ` / ${token.maxUses}` : ''}
-              </dd>
-            </div>
-            <div>
-              <dt>{t.tokenHash}</dt>
-              <dd>{token.tokenHash}</dd>
-            </div>
-          </dl>
-        </article>
+        <details class="token-item" key={token.tokenHash}>
+          <summary>
+            <span>{formatTokenState(token.state, t)}</span>
+            <span>{token.label ?? token.role}</span>
+            <span>{formatDateTime(token.expiresAt, locale)}</span>
+          </summary>
+          <div class="token-detail-body">
+            <dl>
+              <div>
+                <dt>{t.role}</dt>
+                <dd>{token.role}</dd>
+              </div>
+              <div>
+                <dt>{t.revokedAt}</dt>
+                <dd>{token.revokedAt ? formatDateTime(token.revokedAt, locale) : t.none}</dd>
+              </div>
+              <div>
+                <dt>{t.useCount}</dt>
+                <dd>
+                  {token.useCount}
+                  {token.maxUses ? ` / ${token.maxUses}` : ''}
+                </dd>
+              </div>
+              <div>
+                <dt>{t.tokenHash}</dt>
+                <dd>{token.tokenHash}</dd>
+              </div>
+            </dl>
+          </div>
+        </details>
       ))}
     </div>
   )
