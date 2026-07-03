@@ -799,7 +799,8 @@ Releases stay on the `0.x` line until the package is ready for a stable `1.0`.
 Conventional release commits such as `feat:`, `fix:`, and `perf:` advance the
 minor version, so automated releases use `0.x.0` versions. Before the first
 automated publish, configure npm trusted publishing for this GitHub repository
-and both package names so the workflow can publish through GitHub OIDC.
+and both package names so the workflow can publish with provenance through
+GitHub OIDC.
 
 Normal release flow:
 
