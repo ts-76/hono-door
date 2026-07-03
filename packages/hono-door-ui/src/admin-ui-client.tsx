@@ -93,7 +93,8 @@ type LinkDetailsState =
       tokens: TokenSummary[]
       policy: IssuePolicy
       reissueResult?: AdminUiResult
-      message?: string
+      message?: string | undefined
+      error?: string | undefined
     }
   | { status: 'error'; error: string }
 
@@ -117,7 +118,7 @@ function IssueApp({
   if (!authenticated) {
     return (
       <>
-        {error ? <p class="alert">{error}</p> : null}
+        {error ? <p class="alert" role="alert">{error}</p> : null}
         <section class="step">
           <div class="step-body">
             <h2>管理トークン</h2>
@@ -134,46 +135,72 @@ function IssueApp({
   return (
     <>
       <SessionBar onLogout={logout} />
-      {error ? <p class="alert">{error}</p> : null}
+      {error ? <p class="alert" role="alert">{error}</p> : null}
 
       <form method="post" class="steps">
         <section class="step">
           <div class="step-body">
             <h2>リンクを発行</h2>
             <p class="hint">
-              Link ID は公開 URL のパスになります。Room ID はアプリケーション側で管理するデータのキーです。
+              公開ページの ID と表示内容の ID を指定します。発行後の URL と QR はこの画面でのみ共有できます。
             </p>
-            <div class="grid">
-              <label>
-                Link ID
-                <input name="linkId" required defaultValue={values.linkId ?? ''} placeholder="summer-event" />
-              </label>
-              <label>
-                Room ID
-                <input name="roomId" required defaultValue={values.roomId ?? ''} placeholder="room-a" />
-              </label>
+
+            <div class="form-section">
+              <div class="form-section-heading">
+                <h3>必須情報</h3>
+                <p class="hint">共有 URL のパスと、表示する内容を決めます。</p>
+              </div>
+              <div class="grid">
+                <label>
+                  公開ページ ID
+                  <input
+                    name="linkId"
+                    required
+                    maxLength={128}
+                    pattern="[A-Za-z0-9][A-Za-z0-9._~-]*"
+                    defaultValue={values.linkId ?? ''}
+                    placeholder="summer-event"
+                  />
+                  <span class="field-help">URL のパスになります。英数字から始め、英数字・ドット・アンダースコア・チルダ・ハイフンが使えます。</span>
+                </label>
+                <label>
+                  表示内容 ID
+                  <input name="roomId" required maxLength={128} defaultValue={values.roomId ?? ''} placeholder="room-a" />
+                  <span class="field-help">アプリケーション側で表示内容を読み込むための ID です。</span>
+                </label>
+              </div>
             </div>
-            <div class="grid">
-              <label>
-                有効期限
-                <input name="ttl" defaultValue={values.ttl ?? '1h'} placeholder="15m" />
-                <span class="field-help">例: 15m, 1h, 1d</span>
-              </label>
-              <label>
-                ラベル
-                <input name="label" defaultValue={values.label ?? ''} placeholder="staff" />
-                <span class="field-help">管理用のメモです。公開側では token の label として参照できます。</span>
-              </label>
-              <label>
-                最大利用回数
-                <input
-                  name="maxUses"
-                  inputmode="numeric"
-                  defaultValue={values.maxUses ?? ''}
-                  placeholder="空欄 = 無制限"
-                />
-                <span class="field-help">空欄の場合は期限まで回数制限なしです。</span>
-              </label>
+
+            <div class="form-section">
+              <div class="form-section-heading">
+                <h3>発行条件</h3>
+                <p class="hint">期限や利用回数を必要に応じて調整します。</p>
+              </div>
+              <div class="grid">
+                <label>
+                  有効期限
+                  <input name="ttl" defaultValue={values.ttl ?? '1h'} placeholder="15m" pattern="[0-9]+[smhd]?" />
+                  <span class="field-help">例: 15m, 1h, 1d。単位なしの場合は秒として扱います。</span>
+                </label>
+                <label>
+                  最大利用回数
+                  <input
+                    name="maxUses"
+                    type="number"
+                    inputmode="numeric"
+                    min="1"
+                    step="1"
+                    defaultValue={values.maxUses ?? ''}
+                    placeholder="空欄 = 無制限"
+                  />
+                  <span class="field-help">空欄の場合は期限まで回数制限なしです。</span>
+                </label>
+                <label>
+                  ラベル
+                  <input name="label" maxLength={80} defaultValue={values.label ?? ''} placeholder="staff" />
+                  <span class="field-help">管理用メモです。共有先や用途を短く残せます。</span>
+                </label>
+              </div>
             </div>
             <div class="step-controls">
               <button type="submit">URL と QR を発行</button>
@@ -246,7 +273,7 @@ function AdminLoginPanel({ onAuthenticated }: { onAuthenticated: () => void }) {
           {status === 'loading' ? '認証中' : 'ログイン'}
         </button>
       </form>
-      {status === 'error' ? <p class="alert">{error}</p> : null}
+      {status === 'error' ? <p class="alert" role="alert">{error}</p> : null}
     </>
   )
 }
@@ -276,20 +303,18 @@ function SessionBar({ onLogout }: { onLogout: () => void }) {
 
 function IssuedResult({ result }: { result: AdminUiResult }) {
   return (
-    <section class="result">
+    <section class="result handoff-result" aria-live="polite">
       <h2>発行完了</h2>
-      <p class="hint">URL を共有するか、QR コードを読み取ってください。QR は正方形で表示されます。</p>
+      <p class="one-time-warning">
+        この URL と QR は今だけ共有できます。一覧やアーカイブからは再表示できません。
+      </p>
       <div class="issued-layout">
         <div class="issued-main">
           <label>
             URL
             <input readonly value={result.url} />
           </label>
-          <div class="actions">
-            <a href={result.url} target="_blank" rel="noreferrer">
-              URL を開く
-            </a>
-          </div>
+          <ResultActions result={result} />
           <LinkMeta link={result} />
         </div>
         <QrPanel qrSvg={result.qrSvg} />
@@ -403,7 +428,10 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
       const error = await responseError(response)
       setDetails((records) => ({
         ...records,
-        [linkId]: { status: 'error', error },
+        [linkId]: {
+          ...current,
+          error,
+        },
       }))
       return
     }
@@ -415,6 +443,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
         ...current,
         policy,
         message: '発行設定を保存しました。',
+        error: undefined,
       },
     }))
   }
@@ -434,7 +463,10 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
         const error = await responseError(response)
         setDetails((records) => ({
           ...records,
-          [linkId]: { status: 'error', error },
+          [linkId]: {
+            ...current,
+            error,
+          },
         }))
         return
       }
@@ -449,6 +481,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
                 ...refreshed,
                 reissueResult: result,
                 message: `${result.revokedTokenCount ?? 0} 件の既存トークンを無効化して再発行しました。`,
+                error: undefined,
               }
             : refreshed,
       }))
@@ -474,7 +507,10 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
         const error = await responseError(response)
         setDetails((records) => ({
           ...records,
-          [linkId]: { status: 'error', error },
+          [linkId]: {
+            ...current,
+            error,
+          },
         }))
         return
       }
@@ -485,6 +521,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
         [linkId]: {
           ...current,
           message: `${result.revokedTokenCount} 件の有効 token を無効化してアーカイブしました。`,
+          error: undefined,
         },
       }))
       setOpenLinkIds((currentOpen) => currentOpen.filter((openLinkId) => openLinkId !== linkId))
@@ -523,81 +560,83 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
   return (
     <>
       <SessionBar onLogout={logout} />
-      <form
-        class="list-auth"
-        onSubmit={(event) => {
-          event.preventDefault()
-          void loadLinks()
-        }}
-      >
-        <button type="submit" disabled={status === 'loading'}>
-          {status === 'loading' ? '取得中' : '一覧を更新'}
-        </button>
-      </form>
-      <p class="hint">
-        一覧は管理セッションを使ってサーバー側の Registry から取得します。
-      </p>
-      {status === 'error' ? <p class="alert">{error}</p> : null}
       <div class="list-header">
         <div>
           <h2>有効なリンク</h2>
+          <p class="hint">
+            管理セッションでサーバー側の記録を取得します。
+          </p>
         </div>
+        <form
+          class="list-auth"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void loadLinks()
+          }}
+        >
+          <button type="submit" class="secondary" disabled={status === 'loading'}>
+            {status === 'loading' ? '取得中' : '一覧を更新'}
+          </button>
+        </form>
       </div>
+      {status === 'error' ? <p class="alert" role="alert">{error}</p> : null}
       {status === 'loaded' && links.length === 0 ? (
         <p class="empty-state">有効なリンクはありません。期限切れ、無効化済み、利用上限到達済みのトークンは表示されません。</p>
       ) : null}
-      <div class="link-list">
-        {links.map((link) => (
-          <article class="link-item" key={link.linkId}>
-            <div class="link-item-main">
-              <h3>{link.linkId || 'link'}</h3>
-              <dl class="compact-meta">
-                <div>
-                  <dt>ルーム</dt>
-                  <dd>{link.currentRoomId}</dd>
-                </div>
-                <div>
-                  <dt>有効トークン</dt>
-                  <dd>{link.activeTokenCount}</dd>
-                </div>
-                <div>
-                  <dt>最終期限</dt>
-                  <dd>{link.latestExpiresAt}</dd>
-                </div>
-              </dl>
-            </div>
-            <details
-              class="link-detail"
-              onToggle={(event: Event) => {
-                const opened = Boolean((event.target as HTMLDetailsElement | null)?.open)
-                setOpenLinkIds((current) =>
-                  opened
-                    ? current.includes(link.linkId)
-                      ? current
-                      : [...current, link.linkId]
-                    : current.filter((openLinkId) => openLinkId !== link.linkId),
-                )
-                if (opened) void loadDetails(link.linkId)
-              }}
-            >
-              <summary>詳細を見る</summary>
-              <div class="link-detail-body">
-                <p class="hint">
-                  raw token は保存していないため、この一覧から URL や QR は再表示できません。QR は発行直後の完了画面で共有してください。
-                </p>
-                <LinkDetails
-                  state={details[link.linkId]}
-                  onSavePolicy={(input) => void saveIssuePolicy(link.linkId, input)}
-                  onReissue={() => void reissueLink(link.linkId)}
-                  onArchive={() => void archiveLink(link.linkId)}
-                  reissuing={pendingReissueLinkId === link.linkId}
-                  archiving={pendingArchiveLinkId === link.linkId}
-                />
+      {links.length > 0 ? (
+        <div class="link-list">
+          {links.map((link) => (
+            <article class="link-item" key={link.linkId}>
+              <div class="link-item-main">
+                <h3>{link.linkId || 'link'}</h3>
+                <dl class="compact-meta">
+                  <div>
+                    <dt>表示内容 ID</dt>
+                    <dd>{link.currentRoomId}</dd>
+                  </div>
+                  <div>
+                    <dt>有効トークン</dt>
+                    <dd>{link.activeTokenCount}</dd>
+                  </div>
+                  <div>
+                    <dt>最終期限</dt>
+                    <dd>{formatDateTime(link.latestExpiresAt)}</dd>
+                  </div>
+                </dl>
               </div>
-            </details>
-          </article>
-        ))}
-      </div>
+              <details
+                class="link-detail"
+                onToggle={(event: Event) => {
+                  const opened = Boolean((event.target as HTMLDetailsElement | null)?.open)
+                  setOpenLinkIds((current) =>
+                    opened
+                      ? current.includes(link.linkId)
+                        ? current
+                        : [...current, link.linkId]
+                      : current.filter((openLinkId) => openLinkId !== link.linkId),
+                  )
+                  if (opened) void loadDetails(link.linkId)
+                }}
+              >
+                <summary>詳細を見る</summary>
+                <div class="link-detail-body">
+                  <p class="hint">
+                    共有 URL の元になる token は保存していないため、この一覧から URL や QR は再表示できません。
+                  </p>
+                  <LinkDetails
+                    state={details[link.linkId]}
+                    onSavePolicy={(input) => void saveIssuePolicy(link.linkId, input)}
+                    onReissue={() => void reissueLink(link.linkId)}
+                    onArchive={() => void archiveLink(link.linkId)}
+                    reissuing={pendingReissueLinkId === link.linkId}
+                    archiving={pendingArchiveLinkId === link.linkId}
+                  />
+                </div>
+              </details>
+            </article>
+          ))}
+        </div>
+      ) : null}
     </>
   )
 }
@@ -629,12 +668,18 @@ function LinkDetails({
   }
 
   if (state.status === 'error') {
-    return <p class="alert">{state.error}</p>
+    return <p class="alert" role="alert">{state.error}</p>
   }
 
   return (
     <div class="link-details-content">
-      {state.message ? <p class="hint status-message">{state.message}</p> : null}
+      {state.error ? <p class="alert" role="alert">{state.error}</p> : null}
+      {state.message ? <p class="hint status-message" role="status">{state.message}</p> : null}
+      {state.reissueResult ? <ReissuedResult result={state.reissueResult} /> : null}
+      <section class="detail-section">
+        <h3>有効なトークン</h3>
+        <TokenList tokens={state.tokens} />
+      </section>
       <IssuePolicyForm
         policy={state.policy}
         onSave={onSavePolicy}
@@ -643,8 +688,6 @@ function LinkDetails({
         reissuing={reissuing}
         archiving={archiving}
       />
-      {state.reissueResult ? <ReissuedResult result={state.reissueResult} /> : null}
-      <TokenList tokens={state.tokens} />
     </div>
   )
 }
@@ -681,56 +724,70 @@ function IssuePolicyForm({
         })
       }}
     >
-      <h3>発行設定</h3>
-      <div class="grid">
-        <label>
-          有効期限
-          <input name="ttl" defaultValue={formatTtl(policy.ttlSeconds)} placeholder="15m" />
-        </label>
-        <label>
-          ロール
-          <input name="role" defaultValue={policy.role} placeholder="viewer" />
-        </label>
-        <label>
-          ラベル
-          <input name="label" defaultValue={policy.label ?? ''} placeholder="reissued" />
-        </label>
-        <label>
-          最大利用回数
-          <input name="maxUses" inputmode="numeric" defaultValue={policy.maxUses ?? ''} placeholder="空欄 = 無制限" />
-        </label>
-      </div>
-      <div class="step-controls">
-        <button type="submit" class="secondary">
-          発行設定を保存
-        </button>
-        <button type="button" disabled={reissuing || archiving} onClick={onReissue}>
-          {reissuing ? '再発行中' : 'URL/QR を再発行'}
-        </button>
-        <button type="button" class="danger" disabled={reissuing || archiving} onClick={onArchive}>
-          {archiving ? 'アーカイブ中' : '手動アーカイブ'}
-        </button>
-      </div>
+      <section class="detail-section">
+        <h3>次回の発行設定</h3>
+        <p class="hint">このリンクを再発行するときの既定値です。保存だけでは新しい URL は作りません。</p>
+        <div class="grid">
+          <label>
+            有効期限
+            <input name="ttl" defaultValue={formatTtl(policy.ttlSeconds)} placeholder="15m" pattern="[0-9]+[smhd]?" />
+            <span class="field-help">現在の設定: {formatDuration(policy.ttlSeconds)}</span>
+          </label>
+          <label>
+            ロール
+            <input name="role" maxLength={80} defaultValue={policy.role} placeholder="viewer" />
+          </label>
+          <label>
+            ラベル
+            <input name="label" maxLength={80} defaultValue={policy.label ?? ''} placeholder="reissued" />
+          </label>
+          <label>
+            最大利用回数
+            <input
+              name="maxUses"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              step="1"
+              defaultValue={policy.maxUses ?? ''}
+              placeholder="空欄 = 無制限"
+            />
+          </label>
+        </div>
+        <div class="step-controls">
+          <button type="submit" class="secondary">
+            発行設定を保存
+          </button>
+          <button type="button" disabled={reissuing || archiving} onClick={onReissue}>
+            {reissuing ? '再発行中' : 'URL/QR を再発行'}
+          </button>
+        </div>
+      </section>
+      <section class="detail-section danger-zone">
+        <h3>危険な操作</h3>
+        <p class="hint">手動アーカイブは、このリンクの有効な token を無効化します。公開 URL は使えなくなります。</p>
+        <div class="step-controls">
+          <button type="button" class="danger" disabled={reissuing || archiving} onClick={onArchive}>
+            {archiving ? 'アーカイブ中' : '手動アーカイブ'}
+          </button>
+        </div>
+      </section>
     </form>
   )
 }
 
 function ReissuedResult({ result }: { result: AdminUiResult }) {
   return (
-    <section class="reissue-result">
+    <section class="reissue-result handoff-result" aria-live="polite">
       <h2>再発行完了</h2>
-      <p class="hint">古い有効トークンを無効化し、新しい URL と QR を発行しました。</p>
+      <p class="one-time-warning">古い有効トークンを無効化し、新しい URL と QR を発行しました。この URL と QR は今だけ共有できます。</p>
       <div class="issued-layout">
         <div class="issued-main">
           <label>
             URL
             <input readonly value={result.url} />
           </label>
-          <div class="actions">
-            <a href={result.url} target="_blank" rel="noreferrer">
-              URL を開く
-            </a>
-          </div>
+          <ResultActions result={result} />
           <LinkMeta link={result} />
         </div>
         <QrPanel qrSvg={result.qrSvg} />
@@ -763,7 +820,7 @@ function TokenList({ tokens }: { tokens: TokenSummary[] }) {
             </div>
             <div>
               <dt>期限</dt>
-              <dd>{token.expiresAt}</dd>
+              <dd>{formatDateTime(token.expiresAt)}</dd>
             </div>
             <div>
               <dt>利用回数</dt>
@@ -895,49 +952,51 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
         </button>
       </form>
       <p class="hint">期限切れ、無効化済み、利用上限到達済みのリンクを表示します。</p>
-      {status === 'error' ? <p class="alert">{error}</p> : null}
+      {status === 'error' ? <p class="alert" role="alert">{error}</p> : null}
       {status === 'loaded' && links.length === 0 ? (
-        <p class="empty-state">該当するアーカイブはありません。</p>
+        <p class="empty-state">該当するアーカイブはありません。linkId、roomId、ラベル、タイトル、本文の一部で検索できます。</p>
       ) : null}
-      <div class="link-list">
-        {links.map((link) => (
-          <article class="link-item" key={link.linkId}>
-            <div class="link-item-main">
-              <h3>{link.linkId}</h3>
-              <dl class="compact-meta">
-                <div>
-                  <dt>ルーム</dt>
-                  <dd>{link.currentRoomId}</dd>
-                </div>
-                <div>
-                  <dt>トークン数</dt>
-                  <dd>{link.tokenCount}</dd>
-                </div>
-                <div>
-                  <dt>最終期限</dt>
-                  <dd>{link.latestExpiresAt ?? '-'}</dd>
-                </div>
-              </dl>
-              <RoomPreview room={link.latestRoom} />
-            </div>
-            <details
-              class="link-detail"
-              onToggle={(event: Event) => {
-                const opened = Boolean((event.target as HTMLDetailsElement | null)?.open)
-                if (opened) void loadDetail(link.linkId)
-              }}
-            >
-              <summary>投稿内容と履歴を見る</summary>
-              <div class="link-detail-body">
-                <ArchiveDetails
-                  linkId={link.linkId}
-                  state={details[link.linkId]}
-                />
+      {links.length > 0 ? (
+        <div class="link-list">
+          {links.map((link) => (
+            <article class="link-item" key={link.linkId}>
+              <div class="link-item-main">
+                <h3>{link.linkId}</h3>
+                <dl class="compact-meta">
+                  <div>
+                    <dt>表示内容 ID</dt>
+                    <dd>{link.currentRoomId}</dd>
+                  </div>
+                  <div>
+                    <dt>トークン数</dt>
+                    <dd>{link.tokenCount}</dd>
+                  </div>
+                  <div>
+                    <dt>最終期限</dt>
+                    <dd>{link.latestExpiresAt ? formatDateTime(link.latestExpiresAt) : '-'}</dd>
+                  </div>
+                </dl>
+                <RoomPreview room={link.latestRoom} />
               </div>
-            </details>
-          </article>
-        ))}
-      </div>
+              <details
+                class="link-detail"
+                onToggle={(event: Event) => {
+                  const opened = Boolean((event.target as HTMLDetailsElement | null)?.open)
+                  if (opened) void loadDetail(link.linkId)
+                }}
+              >
+                <summary>投稿内容と履歴を見る</summary>
+                <div class="link-detail-body">
+                  <ArchiveDetails
+                    linkId={link.linkId}
+                    state={details[link.linkId]}
+                  />
+                </div>
+              </details>
+            </article>
+          ))}
+        </div>
+      ) : null}
     </>
   )
 }
@@ -954,7 +1013,7 @@ function ArchiveDetails({
   }
 
   if (state.status === 'error') {
-    return <p class="alert">{state.error}</p>
+    return <p class="alert" role="alert">{state.error}</p>
   }
 
   return (
@@ -992,7 +1051,7 @@ function RoomCard({ linkId, room }: { linkId: string; room: RoomSnapshot }) {
     <article class="token-item">
       <dl>
         <div>
-          <dt>Room ID</dt>
+          <dt>表示内容 ID</dt>
           <dd>{room.roomId}</dd>
         </div>
         <div>
@@ -1005,7 +1064,7 @@ function RoomCard({ linkId, room }: { linkId: string; room: RoomSnapshot }) {
         </div>
         <div>
           <dt>更新日時</dt>
-          <dd>{room.updatedAt}</dd>
+          <dd>{formatDateTime(room.updatedAt)}</dd>
         </div>
       </dl>
       <div class="actions">
@@ -1042,11 +1101,11 @@ function ArchiveTokenList({ tokens }: { tokens: TokenSummary[] }) {
             </div>
             <div>
               <dt>期限</dt>
-              <dd>{token.expiresAt}</dd>
+              <dd>{formatDateTime(token.expiresAt)}</dd>
             </div>
             <div>
               <dt>無効化</dt>
-              <dd>{token.revokedAt ?? '-'}</dd>
+              <dd>{token.revokedAt ? formatDateTime(token.revokedAt) : '-'}</dd>
             </div>
             <div>
               <dt>利用回数</dt>
@@ -1096,10 +1155,10 @@ function LinkMeta({ link }: { link: Pick<AdminUiResult, 'expiresAt' | 'roomId' |
     <dl>
       <div>
         <dt>期限</dt>
-        <dd>{link.expiresAt}</dd>
+        <dd>{formatDateTime(link.expiresAt)}</dd>
       </div>
       <div>
-        <dt>ルーム</dt>
+        <dt>表示内容 ID</dt>
         <dd>{link.roomId}</dd>
       </div>
       <div>
@@ -1110,12 +1169,113 @@ function LinkMeta({ link }: { link: Pick<AdminUiResult, 'expiresAt' | 'roomId' |
   )
 }
 
+function ResultActions({ result }: { result: AdminUiResult }) {
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
+  const [downloadStatus, setDownloadStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+
+  const copyUrl = async () => {
+    setCopyStatus('copied')
+    const copied = await copyText(result.url)
+    if (!copied) setCopyStatus('error')
+  }
+
+  const downloadQr = () => {
+    try {
+      const blob = new Blob([result.qrSvg], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `${safeFilename(result.linkId || 'hono-door-link')}-qr.svg`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+      setDownloadStatus('saved')
+    } catch {
+      setDownloadStatus('error')
+    }
+  }
+
+  return (
+    <>
+      <div class="actions result-actions">
+        <button type="button" onClick={() => void copyUrl()}>
+          URL をコピー
+        </button>
+        <button type="button" class="secondary" onClick={downloadQr}>
+          QR を保存
+        </button>
+        <a href={result.url} target="_blank" rel="noreferrer">
+          URL を開く
+        </a>
+      </div>
+      <p class="field-help" role="status" aria-live="polite">
+        {copyStatus === 'copied'
+          ? 'URL をクリップボードにコピーしました。'
+          : copyStatus === 'error'
+            ? 'コピーできませんでした。URL 欄を選択して手動でコピーしてください。'
+            : downloadStatus === 'saved'
+              ? 'QR の SVG ファイルを保存しました。'
+              : downloadStatus === 'error'
+                ? 'QR を保存できませんでした。画面の QR を直接共有してください。'
+                : '共有前に URL コピーまたは QR 保存を済ませてください。'}
+      </p>
+    </>
+  )
+}
+
 function QrPanel({ qrSvg }: { qrSvg: string }) {
   return (
     <div class="qr-panel">
       <div class="qr-code" aria-label="QR コード" dangerouslySetInnerHTML={{ __html: qrSvg }} />
     </div>
   )
+}
+
+async function copyText(value: string): Promise<boolean> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value)
+      return true
+    } catch {
+      // Continue to the textarea fallback for browsers that block clipboard permissions.
+    }
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.inset = '0 auto auto -9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+  try {
+    return document.execCommand('copy')
+  } catch {
+    return false
+  } finally {
+    textarea.remove()
+  }
+}
+
+function safeFilename(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'hono-door-link'
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('ja-JP', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds % 86400 === 0) return `${seconds / 86400}日`
+  if (seconds % 3600 === 0) return `${seconds / 3600}時間`
+  if (seconds % 60 === 0) return `${seconds / 60}分`
+  return `${seconds}秒`
 }
 
 function readIssuePayload(): AdminIssuePayload {

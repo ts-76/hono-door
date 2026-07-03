@@ -74,7 +74,7 @@ export function renderAdminLinkListPage(input: AdminUiPageInput = {}) {
             </nav>
           </header>
 
-          <section class="result">
+          <section class="workspace">
             <p class="hint">
               管理セッションで一覧を取得します。raw token は保存していないため、URL と QR は発行完了画面で共有してください。
             </p>
@@ -117,7 +117,7 @@ export function renderAdminArchivePage(input: AdminUiPageInput = {}) {
             </nav>
           </header>
 
-          <section class="result">
+          <section class="workspace">
             <p class="hint">
               raw token は保存していないため過去 URL は再表示できません。投稿内容の再閲覧は管理セッション必須のプレビューで行います。
             </p>
