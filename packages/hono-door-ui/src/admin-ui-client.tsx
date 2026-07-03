@@ -1008,7 +1008,7 @@ function ArchiveApp({
                     <dd>{link.latestExpiresAt ? formatDateTime(link.latestExpiresAt, locale) : t.none}</dd>
                   </div>
                 </dl>
-                <RoomPreview t={t} room={link.latestRoom} />
+                <RoomPreview t={t} linkId={link.linkId} room={link.latestRoom} />
               </div>
               <details
                 class="link-detail"
@@ -1072,18 +1072,25 @@ function ArchiveDetails({
   )
 }
 
-function RoomPreview({ t, room }: { t: AdminUiText; room?: RoomSnapshot | undefined }) {
-  if (!room) return null
+function RoomPreview({ t, linkId, room }: { t: AdminUiText; linkId: string; room?: RoomSnapshot | undefined }) {
+  if (!room) return <p class="hint archive-preview-unavailable">{t.previewUnavailable}</p>
+  const previewPath = archivePreviewPath(linkId, room.roomId)
+
   return (
-    <p class="hint">
-      {room.title ? `${room.title} / ` : ''}
-      {room.body ? truncate(room.body, 120) : t.noBody}
-    </p>
+    <div class="archive-preview-summary">
+      <p class="hint">
+        {room.title ? `${room.title} / ` : ''}
+        {room.body ? truncate(room.body, 120) : t.noBody}
+      </p>
+      <a class="inline-link" href={previewPath} target="_blank" rel="noreferrer">
+        {t.openAdminPreview}
+      </a>
+    </div>
   )
 }
 
 function RoomCard({ t, locale, linkId, room }: { t: AdminUiText; locale: AdminUiLocale; linkId: string; room: RoomSnapshot }) {
-  const previewPath = `/admin/ui/archive/${encodeURIComponent(linkId)}/rooms/${encodeURIComponent(room.roomId)}/preview`
+  const previewPath = archivePreviewPath(linkId, room.roomId)
 
   return (
     <article class="token-item">
@@ -1112,6 +1119,10 @@ function RoomCard({ t, locale, linkId, room }: { t: AdminUiText; locale: AdminUi
       </div>
     </article>
   )
+}
+
+function archivePreviewPath(linkId: string, roomId: string) {
+  return `/admin/ui/archive/${encodeURIComponent(linkId)}/rooms/${encodeURIComponent(roomId)}/preview`
 }
 
 function ArchiveTokenList({ t, locale, tokens }: { t: AdminUiText; locale: AdminUiLocale; tokens: TokenSummary[] }) {

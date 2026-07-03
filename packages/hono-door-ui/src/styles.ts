@@ -224,6 +224,7 @@ input:focus-visible,
 textarea:focus-visible,
 button:focus-visible,
 .actions a:focus-visible,
+.inline-link:focus-visible,
 .nav a:focus-visible,
 .link-detail summary:focus-visible {
   outline: 3px solid var(--color-primary-focus);
@@ -526,6 +527,26 @@ dd {
   margin: 0;
   line-height: 1.8;
   white-space: pre-wrap;
+}
+.archive-preview-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 14px;
+}
+.archive-preview-summary .hint {
+  margin: 0;
+}
+.inline-link {
+  width: fit-content;
+  border-radius: var(--radius-sm);
+  color: var(--color-primary);
+  font-size: var(--text-ui);
+  font-weight: 500;
+  text-decoration: none;
+}
+.inline-link:hover {
+  text-decoration: underline;
 }
 .token-item {
   min-width: 0;
