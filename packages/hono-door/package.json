@@ -1,0 +1,54 @@
+{
+  "name": "hono-door",
+  "version": "0.1.0",
+  "description": "Hono routes, middleware, and Durable Objects for short-lived public links on Cloudflare Workers.",
+  "license": "MIT",
+  "author": "ts-76",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ts-76/hono-door.git",
+    "directory": "packages/hono-door"
+  },
+  "homepage": "https://github.com/ts-76/hono-door#readme",
+  "bugs": {
+    "url": "https://github.com/ts-76/hono-door/issues"
+  },
+  "keywords": [
+    "hono",
+    "cloudflare-workers",
+    "durable-objects",
+    "short-link",
+    "qr-code",
+    "access-token"
+  ],
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "bun scripts/build-package.ts && tsc -p tsconfig.build.json",
+    "prepack": "bun run build",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.10.7",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.4",
+    "esbuild": "0.28.1"
+  }
+}

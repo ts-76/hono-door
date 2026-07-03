@@ -1,0 +1,41 @@
+{
+  "name": "hono-door",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build:packages": "bun run build:hono-door && bun run build:admin-ui",
+    "build:hono-door": "bun run --cwd packages/hono-door build",
+    "build:admin-ui": "bun run --cwd packages/hono-door-ui build",
+    "dev": "bun run build:packages && wrangler dev --port 8787",
+    "deploy": "bun run build:packages && wrangler deploy",
+    "deploy:dry-run": "bun run build:packages && wrangler deploy --dry-run",
+    "types": "wrangler types",
+    "typecheck": "bun run build:packages && tsc --noEmit",
+    "check": "bun run typecheck && bun run deploy:dry-run",
+    "token:issue": "bun scripts/admin.ts issue-token",
+    "link:switch": "bun scripts/admin.ts switch-room",
+    "room:set": "bun scripts/admin.ts set-room"
+  },
+  "dependencies": {
+    "hono-door": "workspace:*",
+    "hono-door-ui": "workspace:*",
+    "hono": "^4.10.7",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.4",
+    "@types/qrcode-terminal": "^0.12.2",
+    "typescript": "^5.9.2",
+    "wrangler": "^4.102.0"
+  },
+  "trustedDependencies": [
+    "esbuild",
+    "sharp",
+    "workerd"
+  ],
+  "packageManager": "bun@1.3.13"
+}

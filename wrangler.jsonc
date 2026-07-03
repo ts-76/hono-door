@@ -1,0 +1,42 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "hono-short-link-do",
+  "main": "src/index.tsx",
+  "compatibility_date": "2026-06-27",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "PUBLIC_LINKS",
+        "class_name": "PublicLink"
+      },
+      {
+        "name": "ROOMS",
+        "class_name": "Room"
+      },
+      {
+        "name": "REGISTRY",
+        "class_name": "Registry"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["PublicLink", "Room"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["Registry"]
+    }
+  ],
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  },
+  "vars": {
+    "APP_ENV": "production",
+    "PUBLIC_BASE_URL": "https://hono-short-link-do.tsapp.workers.dev"
+  }
+}
