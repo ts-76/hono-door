@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Context, Env as HonoEnv } from 'hono'
 import { deleteCookie, getSignedCookie, setSignedCookie } from 'hono/cookie'
+import { languageDetector } from 'hono/language'
 import { z } from 'zod'
 
 import type {
@@ -17,6 +18,7 @@ import type {
   ShortLinkOperationResult,
   ShortLinkReissuedLink,
 } from 'hono-door'
+import { adminUiText, resolveAdminUiLocale, type AdminUiLocale } from './i18n'
 import {
   generateQrCodeSvg,
   renderAdminArchivePage,
@@ -27,6 +29,17 @@ import {
   type AdminUiValues,
 } from './admin-ui'
 import { adminUiClientJs } from './generated/admin-ui-client'
+
+export type AdminUiArchivePreviewRenderer<T extends HonoEnv> = (context: {
+  c: Context<T>
+  linkId: string
+  room: RegistryArchiveLinkDetail['rooms'][number]
+  detail: RegistryArchiveLinkDetail & { tokens: PublicLinkTokenSummary[] }
+}) => string | Response | Promise<string | Response>
+
+export type AdminUiOptions<T extends HonoEnv> = {
+  renderArchivePreview?: AdminUiArchivePreviewRenderer<T> | undefined
+}
 
 export type AdminUiShortLink<T extends HonoEnv> = {
   validateAdminToken(
@@ -97,8 +110,27 @@ const adminUiSessionSchema = z.object({
   exp: z.number().int().positive(),
 })
 
-export function createDoorUi<T extends HonoEnv>(shortLink: AdminUiShortLink<T>): Hono<T> {
+export function createDoorUi<T extends HonoEnv>(
+  shortLink: AdminUiShortLink<T>,
+  options: AdminUiOptions<T> = {},
+): Hono<T> {
   const routes = new Hono<T>()
+
+  routes.use(
+    '/ui/*',
+    languageDetector({
+      supportedLanguages: ['ja', 'en'],
+      fallbackLanguage: 'ja',
+      convertDetectedLanguage: (language) => language.split('-')[0] ?? language,
+      cookieOptions: {
+        path: '/admin/ui',
+        sameSite: 'Lax',
+        httpOnly: true,
+        secure: false,
+        maxAge: 365 * 24 * 60 * 60,
+      },
+    }),
+  )
 
   routes.get('/ui/client.js', () =>
     new Response(adminUiClientJs, {
@@ -225,11 +257,11 @@ export function createDoorUi<T extends HonoEnv>(shortLink: AdminUiShortLink<T>):
 
   routes.get('/ui/links', async (c) => {
     const session = await readAdminSession(c, shortLink)
-    return c.html(renderAdminLinkListPage({ authenticated: session.ok }))
+    return c.html(renderAdminLinkListPage({ authenticated: session.ok, locale: getAdminUiLocale(c) }))
   })
   routes.get('/ui/archive', async (c) => {
     const session = await readAdminSession(c, shortLink)
-    return c.html(renderAdminArchivePage({ authenticated: session.ok }))
+    return c.html(renderAdminArchivePage({ authenticated: session.ok, locale: getAdminUiLocale(c) }))
   })
   routes.get('/ui/archive/:linkId/rooms/:roomId/preview', async (c) => {
     const session = await readAdminSession(c, shortLink)
@@ -243,17 +275,28 @@ export function createDoorUi<T extends HonoEnv>(shortLink: AdminUiShortLink<T>):
     const room = result.value.rooms.find((candidate) => candidate.roomId === roomId)
     if (!room) return c.text('Archived room not found.', 404)
 
+    if (options.renderArchivePreview) {
+      const rendered = await options.renderArchivePreview({
+        c,
+        linkId,
+        room,
+        detail: result.value,
+      })
+      return rendered instanceof Response ? rendered : c.html(rendered)
+    }
+
     return c.html(renderAdminArchivePreviewPage({ linkId, room }))
   })
   routes.get('/ui', async (c) => {
     const session = await readAdminSession(c, shortLink)
-    return c.html(renderAdminUiPage({ authenticated: session.ok }))
+    return c.html(renderAdminUiPage({ authenticated: session.ok, locale: getAdminUiLocale(c) }))
   })
 
   routes.post('/ui', async (c) => {
-    const body = await parseForm(c)
+    const locale = getAdminUiLocale(c)
+    const body = await parseForm(c, locale)
     if (!body.ok) {
-      return c.html(renderAdminUiPage({ values: body.values, error: body.error }), 400)
+      return c.html(renderAdminUiPage({ values: body.values, error: body.error, locale }), 400)
     }
 
     const values = body.value
@@ -266,6 +309,7 @@ export function createDoorUi<T extends HonoEnv>(shortLink: AdminUiShortLink<T>):
             authenticated: false,
             values: scrubAdminToken(values),
             error: tokenValidation.error,
+            locale,
           }),
           tokenValidation.status,
         )
@@ -278,6 +322,7 @@ export function createDoorUi<T extends HonoEnv>(shortLink: AdminUiShortLink<T>):
             authenticated: false,
             values: scrubAdminToken(values),
             error: secret.error,
+            locale,
           }),
           secret.status,
         )
@@ -300,6 +345,7 @@ export function createDoorUi<T extends HonoEnv>(shortLink: AdminUiShortLink<T>):
           authenticated,
           values: scrubAdminToken(values),
           error: result.error,
+          locale,
         }),
         result.status,
       )
@@ -310,11 +356,17 @@ export function createDoorUi<T extends HonoEnv>(shortLink: AdminUiShortLink<T>):
         authenticated,
         values: scrubAdminToken(values),
         result: toAdminUiResult(result.value),
+        locale,
       }),
     )
   })
 
   return routes
+}
+
+function getAdminUiLocale<T extends HonoEnv>(c: Context<T>): AdminUiLocale {
+  const language = (c as unknown as { get(key: 'language'): unknown }).get('language')
+  return resolveAdminUiLocale(language)
 }
 
 async function parseJson<T extends HonoEnv, Schema extends z.ZodType>(
@@ -328,9 +380,10 @@ async function parseJson<T extends HonoEnv, Schema extends z.ZodType>(
   const result = schema.safeParse(json)
 
   if (!result.success) {
+    const t = adminUiText[getAdminUiLocale(c)]
     return {
       ok: false,
-      response: c.json({ error: 'Required fields are missing or invalid.' }, 400),
+      response: c.json({ error: t.requiredFieldsInvalid }, 400),
     }
   }
 
@@ -408,6 +461,7 @@ function isHttps<T extends HonoEnv>(c: Context<T>): boolean {
 
 async function parseForm<T extends HonoEnv>(
   c: Context<T>,
+  locale: AdminUiLocale,
 ): Promise<
   | { ok: true; value: z.infer<typeof adminUiIssueSchema> }
   | { ok: false; values: AdminUiValues; error: string }
@@ -420,7 +474,7 @@ async function parseForm<T extends HonoEnv>(
     return {
       ok: false,
       values,
-      error: 'Required fields are missing or invalid.',
+      error: adminUiText[locale].requiredFieldsInvalid,
     }
   }
 

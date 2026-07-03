@@ -171,6 +171,10 @@ h2 {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
+  align-items: start;
+}
+.grid > label {
+  grid-template-rows: auto minmax(44px, auto) auto;
 }
 .form-section {
   display: grid;
@@ -206,6 +210,7 @@ textarea {
   border: 1px solid var(--color-line-strong);
   border-radius: var(--radius-sm);
   padding: 10px 12px;
+  min-height: 44px;
   font: inherit;
   background: var(--color-surface);
   color: var(--color-ink);

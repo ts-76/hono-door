@@ -1,3 +1,5 @@
+import type { AdminUiLocale } from './i18n'
+
 export type AdminUiValues = {
   adminToken?: string | undefined
   linkId?: string | undefined
@@ -21,4 +23,5 @@ export type AdminUiPageInput = {
   result?: AdminUiResult
   error?: string
   authenticated?: boolean
+  locale?: AdminUiLocale
 }

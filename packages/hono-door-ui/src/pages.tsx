@@ -1,4 +1,5 @@
 import { adminUiCss } from './styles'
+import { adminUiDefaultLocale, adminUiText, resolveAdminUiLocale } from './i18n'
 import type { AdminUiPageInput } from './types'
 
 type ArchiveRoomPreviewInput = {
@@ -12,28 +13,22 @@ type ArchiveRoomPreviewInput = {
 }
 
 export function renderAdminUiPage(input: AdminUiPageInput = {}) {
+  const locale = resolveAdminUiLocale(input.locale)
+  const t = adminUiText[locale]
   return (
-    <html lang="ja">
+    <html lang={locale}>
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>短縮リンク管理</title>
+        <title>{t.appTitle}</title>
         <style dangerouslySetInnerHTML={{ __html: adminUiCss }}></style>
       </head>
       <body>
         <main>
           <header>
-            <h1>短縮リンク管理</h1>
-            <p class="lead">
-              ルーム内容を登録し、期限付きの共有 URL と QR コードを発行します。
-            </p>
-            <nav class="nav">
-              <a href="/admin/ui" aria-current="page">
-                発行
-              </a>
-              <a href="/admin/ui/links">有効リンク一覧</a>
-              <a href="/admin/ui/archive">アーカイブ</a>
-            </nav>
+            <h1>{t.appTitle}</h1>
+            <p class="lead">{t.appLead}</p>
+            <AdminNav active="issue" t={t} />
           </header>
 
           <div id="admin-issue-root"></div>
@@ -41,7 +36,7 @@ export function renderAdminUiPage(input: AdminUiPageInput = {}) {
         <script
           id="admin-ui-props"
           type="application/json"
-          dangerouslySetInnerHTML={{ __html: jsonScript(input) }}
+          dangerouslySetInnerHTML={{ __html: jsonScript({ ...input, locale }) }}
         ></script>
         <script type="module" src="/admin/ui/client.js"></script>
       </body>
@@ -49,42 +44,50 @@ export function renderAdminUiPage(input: AdminUiPageInput = {}) {
   )
 }
 
-export function renderAdminLinkListPage(input: AdminUiPageInput = {}) {
+function AdminNav({ active, t }: { active: 'issue' | 'links' | 'archive'; t: typeof adminUiText[typeof adminUiDefaultLocale] }) {
   return (
-    <html lang="ja">
+    <nav class="nav">
+      <a href="/admin/ui" aria-current={active === 'issue' ? 'page' : undefined}>
+        {t.navIssue}
+      </a>
+      <a href="/admin/ui/links" aria-current={active === 'links' ? 'page' : undefined}>
+        {t.navLinks}
+      </a>
+      <a href="/admin/ui/archive" aria-current={active === 'archive' ? 'page' : undefined}>
+        {t.navArchive}
+      </a>
+    </nav>
+  )
+}
+
+export function renderAdminLinkListPage(input: AdminUiPageInput = {}) {
+  const locale = resolveAdminUiLocale(input.locale)
+  const t = adminUiText[locale]
+  return (
+    <html lang={locale}>
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>有効リンク一覧</title>
+        <title>{t.activeLinksTitle}</title>
         <style dangerouslySetInnerHTML={{ __html: adminUiCss }}></style>
       </head>
       <body>
         <main>
           <header>
-            <h1>有効リンク一覧</h1>
-            <p class="lead">
-              サーバー側に記録された有効なリンクとトークン情報を表示します。
-            </p>
-            <nav class="nav">
-              <a href="/admin/ui">発行</a>
-              <a href="/admin/ui/links" aria-current="page">
-                有効リンク一覧
-              </a>
-              <a href="/admin/ui/archive">アーカイブ</a>
-            </nav>
+            <h1>{t.activeLinksTitle}</h1>
+            <p class="lead">{t.activeLinksLead}</p>
+            <AdminNav active="links" t={t} />
           </header>
 
           <section class="workspace">
-            <p class="hint">
-              管理セッションで一覧を取得します。raw token は保存していないため、URL と QR は発行完了画面で共有してください。
-            </p>
+            <p class="hint">{t.linkListIntro}</p>
             <div id="admin-link-list-root" aria-live="polite"></div>
           </section>
         </main>
         <script
           id="admin-ui-props"
           type="application/json"
-          dangerouslySetInnerHTML={{ __html: jsonScript(input) }}
+          dangerouslySetInnerHTML={{ __html: jsonScript({ ...input, locale }) }}
         ></script>
         <script type="module" src="/admin/ui/client.js"></script>
       </body>
@@ -93,41 +96,33 @@ export function renderAdminLinkListPage(input: AdminUiPageInput = {}) {
 }
 
 export function renderAdminArchivePage(input: AdminUiPageInput = {}) {
+  const locale = resolveAdminUiLocale(input.locale)
+  const t = adminUiText[locale]
   return (
-    <html lang="ja">
+    <html lang={locale}>
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>アーカイブ</title>
+        <title>{t.archiveTitle}</title>
         <style dangerouslySetInnerHTML={{ __html: adminUiCss }}></style>
       </head>
       <body>
         <main>
           <header>
-            <h1>アーカイブ</h1>
-            <p class="lead">
-              期限切れや無効化済みのリンクを検索し、投稿内容と履歴を管理画面内で確認します。
-            </p>
-            <nav class="nav">
-              <a href="/admin/ui">発行</a>
-              <a href="/admin/ui/links">有効リンク一覧</a>
-              <a href="/admin/ui/archive" aria-current="page">
-                アーカイブ
-              </a>
-            </nav>
+            <h1>{t.archiveTitle}</h1>
+            <p class="lead">{t.archiveLead}</p>
+            <AdminNav active="archive" t={t} />
           </header>
 
           <section class="workspace">
-            <p class="hint">
-              raw token は保存していないため過去 URL は再表示できません。投稿内容の再閲覧は管理セッション必須のプレビューで行います。
-            </p>
+            <p class="hint">{t.archiveIntro}</p>
             <div id="admin-archive-root" aria-live="polite"></div>
           </section>
         </main>
         <script
           id="admin-ui-props"
           type="application/json"
-          dangerouslySetInnerHTML={{ __html: jsonScript(input) }}
+          dangerouslySetInnerHTML={{ __html: jsonScript({ ...input, locale }) }}
         ></script>
         <script type="module" src="/admin/ui/client.js"></script>
       </body>
@@ -136,8 +131,9 @@ export function renderAdminArchivePage(input: AdminUiPageInput = {}) {
 }
 
 export function renderAdminArchivePreviewPage({ linkId, room }: ArchiveRoomPreviewInput) {
+  const t = adminUiText[adminUiDefaultLocale]
   return (
-    <html lang="ja">
+    <html lang={adminUiDefaultLocale}>
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -147,13 +143,11 @@ export function renderAdminArchivePreviewPage({ linkId, room }: ArchiveRoomPrevi
       <body>
         <main>
           <header>
-            <p class="eyebrow">管理プレビュー</p>
+            <p class="eyebrow">{t.adminPreview}</p>
             <h1>{room.title ?? room.roomId}</h1>
-            <p class="lead">
-              このページは管理セッションでのみ表示されます。公開 URL や新しい token は発行していません。
-            </p>
+            <p class="lead">{t.archivePreviewLead}</p>
             <nav class="nav">
-              <a href="/admin/ui/archive">アーカイブへ戻る</a>
+              <a href="/admin/ui/archive">{t.archiveBack}</a>
             </nav>
           </header>
 
@@ -168,12 +162,12 @@ export function renderAdminArchivePreviewPage({ linkId, room }: ArchiveRoomPrevi
                 <dd>{room.roomId}</dd>
               </div>
               <div>
-                <dt>更新日時</dt>
+                <dt>{t.updatedAt}</dt>
                 <dd>{room.updatedAt}</dd>
               </div>
             </dl>
             <article class="archive-preview">
-              <p>{room.body ?? '本文なし'}</p>
+              <p>{room.body ?? t.noBody}</p>
             </article>
           </section>
         </main>

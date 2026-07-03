@@ -2,6 +2,7 @@
 /// <reference lib="dom" />
 
 import { render, useEffect, useState } from 'hono/jsx/dom'
+import { adminUiDefaultLocale, adminUiText, resolveAdminUiLocale, type AdminUiLocale, type AdminUiText } from './i18n'
 
 type AdminUiValues = {
   adminToken?: string
@@ -34,6 +35,7 @@ type AdminIssuePayload = {
   result?: AdminUiResult
   error?: string
   authenticated?: boolean
+  locale?: AdminUiLocale
 }
 
 type LinkSummary = {
@@ -108,8 +110,11 @@ function IssueApp({
   result,
   error,
   authenticated: initialAuthenticated = false,
+  locale: initialLocale = adminUiDefaultLocale,
 }: AdminIssuePayload) {
   const [authenticated, setAuthenticated] = useState(initialAuthenticated)
+  const locale = resolveAdminUiLocale(initialLocale)
+  const t = adminUiText[locale]
 
   const logout = () => {
     setAuthenticated(false)
@@ -121,11 +126,11 @@ function IssueApp({
         {error ? <p class="alert" role="alert">{error}</p> : null}
         <section class="step">
           <div class="step-body">
-            <h2>管理トークン</h2>
+            <h2>{t.adminToken}</h2>
             <p class="hint">
-              初回のみ管理トークンを入力してください。認証後は HttpOnly Cookie の管理セッションで操作します。
+              {t.adminTokenHint}
             </p>
-            <AdminLoginPanel onAuthenticated={() => setAuthenticated(true)} />
+            <AdminLoginPanel t={t} onAuthenticated={() => setAuthenticated(true)} />
           </div>
         </section>
       </>
@@ -134,25 +139,25 @@ function IssueApp({
 
   return (
     <>
-      <SessionBar onLogout={logout} />
+      <SessionBar t={t} onLogout={logout} />
       {error ? <p class="alert" role="alert">{error}</p> : null}
 
       <form method="post" class="steps">
         <section class="step">
           <div class="step-body">
-            <h2>リンクを発行</h2>
+            <h2>{t.issueTitle}</h2>
             <p class="hint">
-              公開ページの ID と表示内容の ID を指定します。発行後の URL と QR はこの画面でのみ共有できます。
+              {t.issueHint}
             </p>
 
             <div class="form-section">
               <div class="form-section-heading">
-                <h3>必須情報</h3>
-                <p class="hint">共有 URL のパスと、表示する内容を決めます。</p>
+                <h3>{t.requiredInfo}</h3>
+                <p class="hint">{t.requiredInfoHint}</p>
               </div>
               <div class="grid">
                 <label>
-                  公開ページ ID
+                  {t.publicPageId}
                   <input
                     name="linkId"
                     required
@@ -161,29 +166,29 @@ function IssueApp({
                     defaultValue={values.linkId ?? ''}
                     placeholder="summer-event"
                   />
-                  <span class="field-help">URL のパスになります。英数字から始め、英数字・ドット・アンダースコア・チルダ・ハイフンが使えます。</span>
+                  <span class="field-help">{t.publicPageIdHelp}</span>
                 </label>
                 <label>
-                  表示内容 ID
+                  {t.contentId}
                   <input name="roomId" required maxLength={128} defaultValue={values.roomId ?? ''} placeholder="room-a" />
-                  <span class="field-help">アプリケーション側で表示内容を読み込むための ID です。</span>
+                  <span class="field-help">{t.contentIdHelp}</span>
                 </label>
               </div>
             </div>
 
             <div class="form-section">
               <div class="form-section-heading">
-                <h3>発行条件</h3>
-                <p class="hint">期限や利用回数を必要に応じて調整します。</p>
+                <h3>{t.issueConditions}</h3>
+                <p class="hint">{t.issueConditionsHint}</p>
               </div>
               <div class="grid">
                 <label>
-                  有効期限
+                  {t.ttl}
                   <input name="ttl" defaultValue={values.ttl ?? '1h'} placeholder="15m" pattern="[0-9]+[smhd]?" />
-                  <span class="field-help">例: 15m, 1h, 1d。単位なしの場合は秒として扱います。</span>
+                  <span class="field-help">{t.ttlHelp}</span>
                 </label>
                 <label>
-                  最大利用回数
+                  {t.maxUses}
                   <input
                     name="maxUses"
                     type="number"
@@ -191,30 +196,30 @@ function IssueApp({
                     min="1"
                     step="1"
                     defaultValue={values.maxUses ?? ''}
-                    placeholder="空欄 = 無制限"
+                    placeholder={t.unlimitedPlaceholder}
                   />
-                  <span class="field-help">空欄の場合は期限まで回数制限なしです。</span>
+                  <span class="field-help">{t.maxUsesHelp}</span>
                 </label>
                 <label>
-                  ラベル
+                  {t.label}
                   <input name="label" maxLength={80} defaultValue={values.label ?? ''} placeholder="staff" />
-                  <span class="field-help">管理用メモです。共有先や用途を短く残せます。</span>
+                  <span class="field-help">{t.labelHelp}</span>
                 </label>
               </div>
             </div>
             <div class="step-controls">
-              <button type="submit">URL と QR を発行</button>
+              <button type="submit">{t.issueSubmit}</button>
             </div>
           </div>
         </section>
       </form>
 
-      {result ? <IssuedResult result={result} /> : null}
+      {result ? <IssuedResult t={t} result={result} locale={locale} /> : null}
     </>
   )
 }
 
-function AdminLoginPanel({ onAuthenticated }: { onAuthenticated: () => void }) {
+function AdminLoginPanel({ t, onAuthenticated }: { t: AdminUiText; onAuthenticated: () => void }) {
   const [adminToken, setAdminToken] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [error, setError] = useState<string>()
@@ -223,7 +228,7 @@ function AdminLoginPanel({ onAuthenticated }: { onAuthenticated: () => void }) {
     const token = adminToken.trim()
     if (!token) {
       setStatus('error')
-      setError('管理トークンを入力してください。')
+      setError(t.adminTokenRequired)
       return
     }
 
@@ -260,17 +265,17 @@ function AdminLoginPanel({ onAuthenticated }: { onAuthenticated: () => void }) {
         }}
       >
         <label>
-          管理トークン
+          {t.adminToken}
           <input
             type="password"
             autocomplete="current-password"
             value={adminToken}
             onInput={(event: Event) => setAdminToken((event.target as HTMLInputElement | null)?.value ?? '')}
-            placeholder="ADMIN_API_TOKEN"
+            placeholder={t.adminTokenPlaceholder}
           />
         </label>
         <button type="submit" disabled={status === 'loading'}>
-          {status === 'loading' ? '認証中' : 'ログイン'}
+          {status === 'loading' ? t.loggingIn : t.login}
         </button>
       </form>
       {status === 'error' ? <p class="alert" role="alert">{error}</p> : null}
@@ -278,7 +283,7 @@ function AdminLoginPanel({ onAuthenticated }: { onAuthenticated: () => void }) {
   )
 }
 
-function SessionBar({ onLogout }: { onLogout: () => void }) {
+function SessionBar({ t, onLogout }: { t: AdminUiText; onLogout: () => void }) {
   const [loggingOut, setLoggingOut] = useState(false)
 
   const logout = async () => {
@@ -293,37 +298,45 @@ function SessionBar({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div class="session-bar">
-      <span>管理セッションで認証済み</span>
+      <span>{t.sessionAuthenticated}</span>
       <button type="button" class="secondary" disabled={loggingOut} onClick={() => void logout()}>
-        ログアウト
+        {t.logout}
       </button>
     </div>
   )
 }
 
-function IssuedResult({ result }: { result: AdminUiResult }) {
+function IssuedResult({ t, result, locale }: { t: AdminUiText; result: AdminUiResult; locale: AdminUiLocale }) {
   return (
     <section class="result handoff-result" aria-live="polite">
-      <h2>発行完了</h2>
+      <h2>{t.issuedComplete}</h2>
       <p class="one-time-warning">
-        この URL と QR は今だけ共有できます。一覧やアーカイブからは再表示できません。
+        {t.issuedWarning}
       </p>
       <div class="issued-layout">
         <div class="issued-main">
           <label>
-            URL
+            {t.url}
             <input readonly value={result.url} />
           </label>
-          <ResultActions result={result} />
-          <LinkMeta link={result} />
+          <ResultActions t={t} result={result} />
+          <LinkMeta t={t} link={result} locale={locale} />
         </div>
-        <QrPanel qrSvg={result.qrSvg} />
+        <QrPanel t={t} qrSvg={result.qrSvg} />
       </div>
     </section>
   )
 }
 
-function LinkListApp({ authenticated: initialAuthenticated = false }: { authenticated?: boolean }) {
+function LinkListApp({
+  authenticated: initialAuthenticated = false,
+  locale: initialLocale = adminUiDefaultLocale,
+}: {
+  authenticated?: boolean
+  locale?: AdminUiLocale | undefined
+}) {
+  const locale = resolveAdminUiLocale(initialLocale)
+  const t = adminUiText[locale]
   const [authenticated, setAuthenticated] = useState(initialAuthenticated)
   const [links, setLinks] = useState<LinkSummary[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
@@ -342,7 +355,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
   const loadLinks = async (clearDetails = true) => {
     if (!authenticated) {
       setStatus('error')
-      setError('管理セッションが必要です。')
+      setError(t.sessionRequired)
       return
     }
 
@@ -442,7 +455,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
       [linkId]: {
         ...current,
         policy,
-        message: '発行設定を保存しました。',
+        message: t.issuePolicySaved,
         error: undefined,
       },
     }))
@@ -480,7 +493,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
             ? {
                 ...refreshed,
                 reissueResult: result,
-                message: `${result.revokedTokenCount ?? 0} 件の既存トークンを無効化して再発行しました。`,
+                message: t.reissueMessage(result.revokedTokenCount),
                 error: undefined,
               }
             : refreshed,
@@ -494,7 +507,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
   const archiveLink = async (linkId: string) => {
     const current = details[linkId]
     if (!authenticated || current?.status !== 'loaded' || pendingArchiveLinkId !== undefined) return
-    if (!window.confirm('このリンクの有効な token を無効化してアーカイブします。よろしいですか？')) return
+    if (!window.confirm(t.archiveConfirm)) return
 
     setPendingArchiveLinkId(linkId)
     try {
@@ -520,7 +533,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
         ...records,
         [linkId]: {
           ...current,
-          message: `${result.revokedTokenCount} 件の有効 token を無効化してアーカイブしました。`,
+          message: t.archiveMessage(result.revokedTokenCount),
           error: undefined,
         },
       }))
@@ -545,9 +558,10 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
     return (
       <>
         <p class="hint">
-          有効リンク一覧を見るには管理トークンでログインしてください。トークン自体は保存しません。
+          {t.activeLinksLoginHint}
         </p>
         <AdminLoginPanel
+          t={t}
           onAuthenticated={() => {
             setAuthenticated(true)
             setStatus('idle')
@@ -559,12 +573,12 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
 
   return (
     <>
-      <SessionBar onLogout={logout} />
+      <SessionBar t={t} onLogout={logout} />
       <div class="list-header">
         <div>
-          <h2>有効なリンク</h2>
+          <h2>{t.activeLinksSection}</h2>
           <p class="hint">
-            管理セッションでサーバー側の記録を取得します。
+            {t.activeLinksSectionHint}
           </p>
         </div>
         <form
@@ -575,13 +589,13 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
           }}
         >
           <button type="submit" class="secondary" disabled={status === 'loading'}>
-            {status === 'loading' ? '取得中' : '一覧を更新'}
+            {status === 'loading' ? t.loadingList : t.refreshList}
           </button>
         </form>
       </div>
       {status === 'error' ? <p class="alert" role="alert">{error}</p> : null}
       {status === 'loaded' && links.length === 0 ? (
-        <p class="empty-state">有効なリンクはありません。期限切れ、無効化済み、利用上限到達済みのトークンは表示されません。</p>
+        <p class="empty-state">{t.noActiveLinks}</p>
       ) : null}
       {links.length > 0 ? (
         <div class="link-list">
@@ -591,16 +605,16 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
                 <h3>{link.linkId || 'link'}</h3>
                 <dl class="compact-meta">
                   <div>
-                    <dt>表示内容 ID</dt>
+                    <dt>{t.contentId}</dt>
                     <dd>{link.currentRoomId}</dd>
                   </div>
                   <div>
-                    <dt>有効トークン</dt>
+                    <dt>{t.activeTokens}</dt>
                     <dd>{link.activeTokenCount}</dd>
                   </div>
                   <div>
-                    <dt>最終期限</dt>
-                    <dd>{formatDateTime(link.latestExpiresAt)}</dd>
+                    <dt>{t.latestExpiry}</dt>
+                    <dd>{formatDateTime(link.latestExpiresAt, locale)}</dd>
                   </div>
                 </dl>
               </div>
@@ -618,19 +632,21 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
                   if (opened) void loadDetails(link.linkId)
                 }}
               >
-                <summary>詳細を見る</summary>
+                <summary>{t.details}</summary>
                 <div class="link-detail-body">
                   <p class="hint">
-                    共有 URL の元になる token は保存していないため、この一覧から URL や QR は再表示できません。
+                    {t.tokenNotStoredHint}
                   </p>
-                  <LinkDetails
-                    state={details[link.linkId]}
-                    onSavePolicy={(input) => void saveIssuePolicy(link.linkId, input)}
-                    onReissue={() => void reissueLink(link.linkId)}
-                    onArchive={() => void archiveLink(link.linkId)}
-                    reissuing={pendingReissueLinkId === link.linkId}
-                    archiving={pendingArchiveLinkId === link.linkId}
-                  />
+                <LinkDetails
+                  state={details[link.linkId]}
+                  t={t}
+                  locale={locale}
+                  onSavePolicy={(input) => void saveIssuePolicy(link.linkId, input)}
+                  onReissue={() => void reissueLink(link.linkId)}
+                  onArchive={() => void archiveLink(link.linkId)}
+                  reissuing={pendingReissueLinkId === link.linkId}
+                  archiving={pendingArchiveLinkId === link.linkId}
+                />
                 </div>
               </details>
             </article>
@@ -650,6 +666,8 @@ type IssuePolicyInput = {
 
 function LinkDetails({
   state,
+  t,
+  locale,
   onSavePolicy,
   onReissue,
   onArchive,
@@ -657,6 +675,8 @@ function LinkDetails({
   archiving,
 }: {
   state: LinkDetailsState | undefined
+  t: AdminUiText
+  locale: AdminUiLocale
   onSavePolicy(input: IssuePolicyInput): void
   onReissue(): void
   onArchive(): void
@@ -664,7 +684,7 @@ function LinkDetails({
   archiving: boolean
 }) {
   if (!state || state.status === 'loading') {
-    return <p class="empty-state">詳細を取得中です。</p>
+    return <p class="empty-state">{t.loadingDetails}</p>
   }
 
   if (state.status === 'error') {
@@ -675,12 +695,13 @@ function LinkDetails({
     <div class="link-details-content">
       {state.error ? <p class="alert" role="alert">{state.error}</p> : null}
       {state.message ? <p class="hint status-message" role="status">{state.message}</p> : null}
-      {state.reissueResult ? <ReissuedResult result={state.reissueResult} /> : null}
+      {state.reissueResult ? <ReissuedResult t={t} result={state.reissueResult} locale={locale} /> : null}
       <section class="detail-section">
-        <h3>有効なトークン</h3>
-        <TokenList tokens={state.tokens} />
+        <h3>{t.activeTokenSection}</h3>
+        <TokenList t={t} tokens={state.tokens} locale={locale} />
       </section>
       <IssuePolicyForm
+        t={t}
         policy={state.policy}
         onSave={onSavePolicy}
         onReissue={onReissue}
@@ -694,6 +715,7 @@ function LinkDetails({
 
 function IssuePolicyForm({
   policy,
+  t,
   onSave,
   onReissue,
   onArchive,
@@ -701,6 +723,7 @@ function IssuePolicyForm({
   archiving,
 }: {
   policy: IssuePolicy
+  t: AdminUiText
   onSave(input: IssuePolicyInput): void
   onReissue(): void
   onArchive(): void
@@ -725,24 +748,24 @@ function IssuePolicyForm({
       }}
     >
       <section class="detail-section">
-        <h3>次回の発行設定</h3>
-        <p class="hint">このリンクを再発行するときの既定値です。保存だけでは新しい URL は作りません。</p>
+        <h3>{t.nextIssuePolicy}</h3>
+        <p class="hint">{t.nextIssuePolicyHint}</p>
         <div class="grid">
           <label>
-            有効期限
+            {t.ttl}
             <input name="ttl" defaultValue={formatTtl(policy.ttlSeconds)} placeholder="15m" pattern="[0-9]+[smhd]?" />
-            <span class="field-help">現在の設定: {formatDuration(policy.ttlSeconds)}</span>
+            <span class="field-help">{t.currentSetting}: {formatDuration(policy.ttlSeconds, t)}</span>
           </label>
           <label>
-            ロール
+            {t.role}
             <input name="role" maxLength={80} defaultValue={policy.role} placeholder="viewer" />
           </label>
           <label>
-            ラベル
+            {t.label}
             <input name="label" maxLength={80} defaultValue={policy.label ?? ''} placeholder="reissued" />
           </label>
           <label>
-            最大利用回数
+            {t.maxUses}
             <input
               name="maxUses"
               type="number"
@@ -750,25 +773,25 @@ function IssuePolicyForm({
               min="1"
               step="1"
               defaultValue={policy.maxUses ?? ''}
-              placeholder="空欄 = 無制限"
+              placeholder={t.unlimitedPlaceholder}
             />
           </label>
         </div>
         <div class="step-controls">
           <button type="submit" class="secondary">
-            発行設定を保存
+            {t.saveIssuePolicy}
           </button>
           <button type="button" disabled={reissuing || archiving} onClick={onReissue}>
-            {reissuing ? '再発行中' : 'URL/QR を再発行'}
+            {reissuing ? t.reissuing : t.reissue}
           </button>
         </div>
       </section>
       <section class="detail-section danger-zone">
-        <h3>危険な操作</h3>
-        <p class="hint">手動アーカイブは、このリンクの有効な token を無効化します。公開 URL は使えなくなります。</p>
+        <h3>{t.dangerZone}</h3>
+        <p class="hint">{t.dangerArchiveHint}</p>
         <div class="step-controls">
           <button type="button" class="danger" disabled={reissuing || archiving} onClick={onArchive}>
-            {archiving ? 'アーカイブ中' : '手動アーカイブ'}
+            {archiving ? t.archiving : t.archiveManual}
           </button>
         </div>
       </section>
@@ -776,29 +799,29 @@ function IssuePolicyForm({
   )
 }
 
-function ReissuedResult({ result }: { result: AdminUiResult }) {
+function ReissuedResult({ t, result, locale }: { t: AdminUiText; result: AdminUiResult; locale: AdminUiLocale }) {
   return (
     <section class="reissue-result handoff-result" aria-live="polite">
-      <h2>再発行完了</h2>
-      <p class="one-time-warning">古い有効トークンを無効化し、新しい URL と QR を発行しました。この URL と QR は今だけ共有できます。</p>
+      <h2>{t.reissuedComplete}</h2>
+      <p class="one-time-warning">{t.reissuedWarning}</p>
       <div class="issued-layout">
         <div class="issued-main">
           <label>
-            URL
+            {t.url}
             <input readonly value={result.url} />
           </label>
-          <ResultActions result={result} />
-          <LinkMeta link={result} />
+          <ResultActions t={t} result={result} />
+          <LinkMeta t={t} link={result} locale={locale} />
         </div>
-        <QrPanel qrSvg={result.qrSvg} />
+        <QrPanel t={t} qrSvg={result.qrSvg} />
       </div>
     </section>
   )
 }
 
-function TokenList({ tokens }: { tokens: TokenSummary[] }) {
+function TokenList({ t, tokens, locale }: { t: AdminUiText; tokens: TokenSummary[]; locale: AdminUiLocale }) {
   if (tokens.length === 0) {
-    return <p class="empty-state">有効なトークンはありません。</p>
+    return <p class="empty-state">{t.noActiveTokens}</p>
   }
 
   return (
@@ -807,30 +830,30 @@ function TokenList({ tokens }: { tokens: TokenSummary[] }) {
         <article class="token-item" key={token.tokenHash}>
           <dl>
             <div>
-              <dt>ラベル</dt>
-              <dd>{token.label ?? '-'}</dd>
+              <dt>{t.label}</dt>
+              <dd>{token.label ?? t.none}</dd>
             </div>
             <div>
-              <dt>ロール</dt>
+              <dt>{t.role}</dt>
               <dd>{token.role}</dd>
             </div>
             <div>
-              <dt>ルーム</dt>
+              <dt>{t.contentId}</dt>
               <dd>{token.roomId}</dd>
             </div>
             <div>
-              <dt>期限</dt>
-              <dd>{formatDateTime(token.expiresAt)}</dd>
+              <dt>{t.expires}</dt>
+              <dd>{formatDateTime(token.expiresAt, locale)}</dd>
             </div>
             <div>
-              <dt>利用回数</dt>
+              <dt>{t.useCount}</dt>
               <dd>
                 {token.useCount}
                 {token.maxUses ? ` / ${token.maxUses}` : ''}
               </dd>
             </div>
             <div>
-              <dt>トークンハッシュ</dt>
+              <dt>{t.tokenHash}</dt>
               <dd>{token.tokenHash}</dd>
             </div>
           </dl>
@@ -840,7 +863,15 @@ function TokenList({ tokens }: { tokens: TokenSummary[] }) {
   )
 }
 
-function ArchiveApp({ authenticated: initialAuthenticated = false }: { authenticated?: boolean }) {
+function ArchiveApp({
+  authenticated: initialAuthenticated = false,
+  locale: initialLocale = adminUiDefaultLocale,
+}: {
+  authenticated?: boolean
+  locale?: AdminUiLocale | undefined
+}) {
+  const locale = resolveAdminUiLocale(initialLocale)
+  const t = adminUiText[locale]
   const [authenticated, setAuthenticated] = useState(initialAuthenticated)
   const [query, setQuery] = useState('')
   const [links, setLinks] = useState<ArchiveLinkSummary[]>([])
@@ -857,7 +888,7 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
   const loadArchive = async () => {
     if (!authenticated) {
       setStatus('error')
-      setError('管理セッションが必要です。')
+      setError(t.sessionRequired)
       return
     }
 
@@ -918,8 +949,9 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
   if (!authenticated) {
     return (
       <>
-        <p class="hint">アーカイブを見るには管理トークンでログインしてください。</p>
+        <p class="hint">{t.archiveLoginHint}</p>
         <AdminLoginPanel
+          t={t}
           onAuthenticated={() => {
             setAuthenticated(true)
             setStatus('idle')
@@ -931,7 +963,7 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
 
   return (
     <>
-      <SessionBar onLogout={logout} />
+      <SessionBar t={t} onLogout={logout} />
       <form
         class="list-auth"
         onSubmit={(event) => {
@@ -940,7 +972,7 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
         }}
       >
         <label>
-          検索
+          {t.search}
           <input
             value={query}
             onInput={(event: Event) => setQuery((event.target as HTMLInputElement | null)?.value ?? '')}
@@ -948,13 +980,13 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
           />
         </label>
         <button type="submit" disabled={status === 'loading'}>
-          {status === 'loading' ? '検索中' : 'アーカイブを検索'}
+          {status === 'loading' ? t.searching : t.archiveSearch}
         </button>
       </form>
-      <p class="hint">期限切れ、無効化済み、利用上限到達済みのリンクを表示します。</p>
+      <p class="hint">{t.archiveSearchHint}</p>
       {status === 'error' ? <p class="alert" role="alert">{error}</p> : null}
       {status === 'loaded' && links.length === 0 ? (
-        <p class="empty-state">該当するアーカイブはありません。linkId、roomId、ラベル、タイトル、本文の一部で検索できます。</p>
+        <p class="empty-state">{t.noArchive}</p>
       ) : null}
       {links.length > 0 ? (
         <div class="link-list">
@@ -964,19 +996,19 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
                 <h3>{link.linkId}</h3>
                 <dl class="compact-meta">
                   <div>
-                    <dt>表示内容 ID</dt>
+                    <dt>{t.contentId}</dt>
                     <dd>{link.currentRoomId}</dd>
                   </div>
                   <div>
-                    <dt>トークン数</dt>
+                    <dt>{t.tokenCount}</dt>
                     <dd>{link.tokenCount}</dd>
                   </div>
                   <div>
-                    <dt>最終期限</dt>
-                    <dd>{link.latestExpiresAt ? formatDateTime(link.latestExpiresAt) : '-'}</dd>
+                    <dt>{t.latestExpiry}</dt>
+                    <dd>{link.latestExpiresAt ? formatDateTime(link.latestExpiresAt, locale) : t.none}</dd>
                   </div>
                 </dl>
-                <RoomPreview room={link.latestRoom} />
+                <RoomPreview t={t} room={link.latestRoom} />
               </div>
               <details
                 class="link-detail"
@@ -985,9 +1017,11 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
                   if (opened) void loadDetail(link.linkId)
                 }}
               >
-                <summary>投稿内容と履歴を見る</summary>
+                <summary>{t.viewArchiveDetails}</summary>
                 <div class="link-detail-body">
                   <ArchiveDetails
+                    t={t}
+                    locale={locale}
                     linkId={link.linkId}
                     state={details[link.linkId]}
                   />
@@ -1002,14 +1036,18 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
 }
 
 function ArchiveDetails({
+  t,
+  locale,
   linkId,
   state,
 }: {
+  t: AdminUiText
+  locale: AdminUiLocale
   linkId: string
   state: ArchiveDetailState | undefined
 }) {
   if (!state || state.status === 'loading') {
-    return <p class="empty-state">詳細を取得中です。</p>
+    return <p class="empty-state">{t.loadingDetails}</p>
   }
 
   if (state.status === 'error') {
@@ -1019,103 +1057,103 @@ function ArchiveDetails({
   return (
     <div class="link-details-content">
       <p class="hint">
-        アーカイブの再閲覧は管理セッション必須のプレビューで行います。公開 URL や新しい token は発行しません。
+        {t.archiveDetailsHint}
       </p>
       <section class="archive-room">
-        <h3>投稿内容</h3>
+        <h3>{t.contentSection}</h3>
         {state.detail.rooms.length === 0 ? (
-          <p class="empty-state">保存済みの投稿内容はありません。</p>
+          <p class="empty-state">{t.noSavedContent}</p>
         ) : (
-          state.detail.rooms.map((room) => <RoomCard linkId={linkId} room={room} key={room.roomId} />)
+          state.detail.rooms.map((room) => <RoomCard t={t} locale={locale} linkId={linkId} room={room} key={room.roomId} />)
         )}
       </section>
-      <ArchiveTokenList tokens={state.detail.tokens} />
+      <ArchiveTokenList t={t} locale={locale} tokens={state.detail.tokens} />
     </div>
   )
 }
 
-function RoomPreview({ room }: { room?: RoomSnapshot | undefined }) {
+function RoomPreview({ t, room }: { t: AdminUiText; room?: RoomSnapshot | undefined }) {
   if (!room) return null
   return (
     <p class="hint">
       {room.title ? `${room.title} / ` : ''}
-      {room.body ? truncate(room.body, 120) : '本文なし'}
+      {room.body ? truncate(room.body, 120) : t.noBody}
     </p>
   )
 }
 
-function RoomCard({ linkId, room }: { linkId: string; room: RoomSnapshot }) {
+function RoomCard({ t, locale, linkId, room }: { t: AdminUiText; locale: AdminUiLocale; linkId: string; room: RoomSnapshot }) {
   const previewPath = `/admin/ui/archive/${encodeURIComponent(linkId)}/rooms/${encodeURIComponent(room.roomId)}/preview`
 
   return (
     <article class="token-item">
       <dl>
         <div>
-          <dt>表示内容 ID</dt>
+          <dt>{t.contentId}</dt>
           <dd>{room.roomId}</dd>
         </div>
         <div>
-          <dt>タイトル</dt>
-          <dd>{room.title ?? '-'}</dd>
+          <dt>{t.title}</dt>
+          <dd>{room.title ?? t.none}</dd>
         </div>
         <div>
-          <dt>本文</dt>
-          <dd>{room.body ?? '-'}</dd>
+          <dt>{t.body}</dt>
+          <dd>{room.body ?? t.none}</dd>
         </div>
         <div>
-          <dt>更新日時</dt>
-          <dd>{formatDateTime(room.updatedAt)}</dd>
+          <dt>{t.updatedAt}</dt>
+          <dd>{formatDateTime(room.updatedAt, locale)}</dd>
         </div>
       </dl>
       <div class="actions">
         <a href={previewPath} target="_blank" rel="noreferrer">
-          管理プレビューを開く
+          {t.openAdminPreview}
         </a>
       </div>
     </article>
   )
 }
 
-function ArchiveTokenList({ tokens }: { tokens: TokenSummary[] }) {
+function ArchiveTokenList({ t, locale, tokens }: { t: AdminUiText; locale: AdminUiLocale; tokens: TokenSummary[] }) {
   if (tokens.length === 0) {
-    return <p class="empty-state">保存済みのトークン履歴はありません。</p>
+    return <p class="empty-state">{t.noTokenHistory}</p>
   }
 
   return (
     <div class="token-list">
-      <h3>トークン履歴</h3>
+      <h3>{t.tokenHistory}</h3>
       {tokens.map((token) => (
         <article class="token-item" key={token.tokenHash}>
           <dl>
             <div>
-              <dt>状態</dt>
-              <dd>{formatTokenState(token.state)}</dd>
+              <dt>{t.status}</dt>
+              <dd>{formatTokenState(token.state, t)}</dd>
             </div>
             <div>
-              <dt>ラベル</dt>
-              <dd>{token.label ?? '-'}</dd>
+              <dt>{t.label}</dt>
+              <dd>{token.label ?? t.none}</dd>
             </div>
             <div>
-              <dt>ロール</dt>
+              <dt>{t.role}</dt>
               <dd>{token.role}</dd>
             </div>
             <div>
-              <dt>期限</dt>
-              <dd>{formatDateTime(token.expiresAt)}</dd>
+              <dt>{t.expires}</dt>
+              <dd>{formatDateTime(token.expiresAt, locale)}</dd>
             </div>
             <div>
-              <dt>無効化</dt>
-              <dd>{token.revokedAt ? formatDateTime(token.revokedAt) : '-'}</dd>
+              <dt>{t.revokedAt}</dt>
+              <dd>{token.revokedAt ? formatDateTime(token.revokedAt, locale) : t.none}</dd>
             </div>
             <div>
-              <dt>利用回数</dt>
+              <dt>{t.useCount}</dt>
               <dd>
                 {token.useCount}
                 {token.maxUses ? ` / ${token.maxUses}` : ''}
               </dd>
             </div>
             <div>
-              <dt>トークンハッシュ</dt>
+              <dt>{t.tokenHash}</dt>
               <dd>{token.tokenHash}</dd>
             </div>
           </dl>
@@ -1125,12 +1163,12 @@ function ArchiveTokenList({ tokens }: { tokens: TokenSummary[] }) {
   )
 }
 
-function formatTokenState(state: TokenSummary['state']): string {
-  if (state === 'active') return '有効'
-  if (state === 'expired') return '期限切れ'
-  if (state === 'revoked') return '無効化済み'
-  if (state === 'max_uses_reached') return '利用上限到達'
-  return '-'
+function formatTokenState(state: TokenSummary['state'], t: AdminUiText): string {
+  if (state === 'active') return t.stateActive
+  if (state === 'expired') return t.stateExpired
+  if (state === 'revoked') return t.stateRevoked
+  if (state === 'max_uses_reached') return t.stateMaxUsesReached
+  return t.none
 }
 
 function truncate(value: string, maxLength: number): string {
@@ -1150,26 +1188,26 @@ function formatTtl(seconds: number): string {
   return String(seconds)
 }
 
-function LinkMeta({ link }: { link: Pick<AdminUiResult, 'expiresAt' | 'roomId' | 'tokenHash'> }) {
+function LinkMeta({ t, link, locale }: { t: AdminUiText; link: Pick<AdminUiResult, 'expiresAt' | 'roomId' | 'tokenHash'>; locale: AdminUiLocale }) {
   return (
     <dl>
       <div>
-        <dt>期限</dt>
-        <dd>{formatDateTime(link.expiresAt)}</dd>
+        <dt>{t.expires}</dt>
+        <dd>{formatDateTime(link.expiresAt, locale)}</dd>
       </div>
       <div>
-        <dt>表示内容 ID</dt>
+        <dt>{t.contentId}</dt>
         <dd>{link.roomId}</dd>
       </div>
       <div>
-        <dt>トークンハッシュ</dt>
+        <dt>{t.tokenHash}</dt>
         <dd>{link.tokenHash}</dd>
       </div>
     </dl>
   )
 }
 
-function ResultActions({ result }: { result: AdminUiResult }) {
+function ResultActions({ t, result }: { t: AdminUiText; result: AdminUiResult }) {
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
   const [downloadStatus, setDownloadStatus] = useState<'idle' | 'saved' | 'error'>('idle')
 
@@ -1200,34 +1238,34 @@ function ResultActions({ result }: { result: AdminUiResult }) {
     <>
       <div class="actions result-actions">
         <button type="button" onClick={() => void copyUrl()}>
-          URL をコピー
+          {t.copyUrl}
         </button>
         <button type="button" class="secondary" onClick={downloadQr}>
-          QR を保存
+          {t.saveQr}
         </button>
         <a href={result.url} target="_blank" rel="noreferrer">
-          URL を開く
+          {t.openUrl}
         </a>
       </div>
       <p class="field-help" role="status" aria-live="polite">
         {copyStatus === 'copied'
-          ? 'URL をクリップボードにコピーしました。'
+          ? t.copySuccess
           : copyStatus === 'error'
-            ? 'コピーできませんでした。URL 欄を選択して手動でコピーしてください。'
+            ? t.copyError
             : downloadStatus === 'saved'
-              ? 'QR の SVG ファイルを保存しました。'
+              ? t.qrSaveSuccess
               : downloadStatus === 'error'
-                ? 'QR を保存できませんでした。画面の QR を直接共有してください。'
-                : '共有前に URL コピーまたは QR 保存を済ませてください。'}
+                ? t.qrSaveError
+                : t.copyOrSaveHint}
       </p>
     </>
   )
 }
 
-function QrPanel({ qrSvg }: { qrSvg: string }) {
+function QrPanel({ t, qrSvg }: { t: AdminUiText; qrSvg: string }) {
   return (
     <div class="qr-panel">
-      <div class="qr-code" aria-label="QR コード" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+      <div class="qr-code" aria-label={t.qrCode} dangerouslySetInnerHTML={{ __html: qrSvg }} />
     </div>
   )
 }
@@ -1262,20 +1300,20 @@ function safeFilename(value: string): string {
   return value.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'hono-door-link'
 }
 
-function formatDateTime(value: string): string {
+function formatDateTime(value: string, locale: AdminUiLocale): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
-  return new Intl.DateTimeFormat('ja-JP', {
+  return new Intl.DateTimeFormat(locale === 'ja' ? 'ja-JP' : 'en-US', {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)
 }
 
-function formatDuration(seconds: number): string {
-  if (seconds % 86400 === 0) return `${seconds / 86400}日`
-  if (seconds % 3600 === 0) return `${seconds / 3600}時間`
-  if (seconds % 60 === 0) return `${seconds / 60}分`
-  return `${seconds}秒`
+function formatDuration(seconds: number, t: AdminUiText): string {
+  if (seconds % 86400 === 0) return t === adminUiText.ja ? `${seconds / 86400}日` : `${seconds / 86400}d`
+  if (seconds % 3600 === 0) return t === adminUiText.ja ? `${seconds / 3600}時間` : `${seconds / 3600}h`
+  if (seconds % 60 === 0) return t === adminUiText.ja ? `${seconds / 60}分` : `${seconds / 60}m`
+  return t === adminUiText.ja ? `${seconds}秒` : `${seconds}s`
 }
 
 function readIssuePayload(): AdminIssuePayload {
@@ -1307,10 +1345,10 @@ if (issueRoot) {
 
 const listRoot = document.getElementById('admin-link-list-root')
 if (listRoot) {
-  render(<LinkListApp authenticated={Boolean(adminUiPayload.authenticated)} />, listRoot)
+  render(<LinkListApp authenticated={Boolean(adminUiPayload.authenticated)} locale={adminUiPayload.locale} />, listRoot)
 }
 
 const archiveRoot = document.getElementById('admin-archive-root')
 if (archiveRoot) {
-  render(<ArchiveApp authenticated={Boolean(adminUiPayload.authenticated)} />, archiveRoot)
+  render(<ArchiveApp authenticated={Boolean(adminUiPayload.authenticated)} locale={adminUiPayload.locale} />, archiveRoot)
 }
