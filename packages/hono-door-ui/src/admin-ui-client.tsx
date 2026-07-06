@@ -620,11 +620,9 @@ function LinkListApp({
                         <dd>{formatDateTime(link.latestExpiresAt, locale)}</dd>
                       </div>
                     </dl>
-                    <ActiveTokenHashes t={t} state={details[link.linkId]} />
                   </div>
                   <ActiveRowActions
                     t={t}
-                    state={details[link.linkId]}
                     detailsOpen={detailOpen}
                     onToggleDetails={() => {
                       setOpenLinkIds((current) =>
@@ -668,34 +666,8 @@ type IssuePolicyInput = {
   maxUses?: string | null
 }
 
-function ActiveTokenHashes({ t, state }: { t: AdminUiText; state: LinkDetailsState | undefined }) {
-  if (!state || state.status === 'loading') {
-    return <p class="empty-state active-token-loading">{t.loadingDetails}</p>
-  }
-
-  if (state.status === 'error') {
-    return <p class="alert" role="alert">{state.error}</p>
-  }
-
-  if (state.tokens.length === 0) {
-    return <p class="empty-state">{t.noActiveTokens}</p>
-  }
-
-  return (
-    <dl class="active-token-hashes">
-      {state.tokens.map((token) => (
-        <div key={token.tokenHash}>
-          <dt>{t.tokenHash}</dt>
-          <dd>{token.tokenHash}</dd>
-        </div>
-      ))}
-    </dl>
-  )
-}
-
 function ActiveRowActions({
   t,
-  state,
   detailsOpen,
   onToggleDetails,
   onArchive,
@@ -703,7 +675,6 @@ function ActiveRowActions({
   disabled,
 }: {
   t: AdminUiText
-  state: LinkDetailsState | undefined
   detailsOpen: boolean
   onToggleDetails(): void
   onArchive(): void
@@ -1039,7 +1010,6 @@ function ArchiveApp({
                       <dd>{link.latestExpiresAt ? formatDateTime(link.latestExpiresAt, locale) : t.none}</dd>
                     </div>
                   </dl>
-                  <ArchiveTokenHashes t={t} state={details[link.linkId]} />
                 </div>
                 <ArchiveRowActions
                   t={t}
@@ -1055,37 +1025,6 @@ function ArchiveApp({
         </div>
       ) : null}
     </>
-  )
-}
-
-function ArchiveTokenHashes({
-  t,
-  state,
-}: {
-  t: AdminUiText
-  state: ArchiveDetailState | undefined
-}) {
-  if (!state || state.status === 'loading') {
-    return <p class="empty-state archive-token-loading">{t.loadingDetails}</p>
-  }
-
-  if (state.status === 'error') {
-    return <p class="alert" role="alert">{state.error}</p>
-  }
-
-  if (state.detail.tokens.length === 0) {
-    return <p class="empty-state">{t.noTokenHistory}</p>
-  }
-
-  return (
-    <dl class="archive-token-hashes">
-      {state.detail.tokens.map((token) => (
-        <div key={token.tokenHash}>
-          <dt>{t.tokenHash}</dt>
-          <dd>{token.tokenHash}</dd>
-        </div>
-      ))}
-    </dl>
   )
 }
 
@@ -1141,7 +1080,7 @@ function formatTtl(seconds: number): string {
   return String(seconds)
 }
 
-function LinkMeta({ t, link, locale }: { t: AdminUiText; link: Pick<AdminUiResult, 'expiresAt' | 'roomId' | 'tokenHash'>; locale: AdminUiLocale }) {
+function LinkMeta({ t, link, locale }: { t: AdminUiText; link: Pick<AdminUiResult, 'expiresAt' | 'roomId'>; locale: AdminUiLocale }) {
   return (
     <dl>
       <div>
@@ -1151,10 +1090,6 @@ function LinkMeta({ t, link, locale }: { t: AdminUiText; link: Pick<AdminUiResul
       <div>
         <dt>{t.contentId}</dt>
         <dd>{link.roomId}</dd>
-      </div>
-      <div>
-        <dt>{t.tokenHash}</dt>
-        <dd>{link.tokenHash}</dd>
       </div>
     </dl>
   )

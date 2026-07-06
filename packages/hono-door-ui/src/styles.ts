@@ -433,26 +433,6 @@ dd {
   padding-left: 18px;
   border-left: 1px solid var(--color-line);
 }
-.active-token-hashes {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  padding-top: 8px;
-}
-.active-token-hashes div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-width: 0;
-  padding-top: 8px;
-  border-top: 1px solid var(--color-line);
-}
-.active-token-hashes dd {
-  overflow-wrap: anywhere;
-}
-.active-token-loading {
-  padding-top: 8px;
-}
 .link-detail {
   display: grid;
   gap: 0;
@@ -553,26 +533,6 @@ dd {
   min-width: 220px;
   padding: 0 0 0 18px;
   border-left: 1px solid var(--color-line);
-}
-.archive-token-hashes {
-  display: grid;
-  gap: 8px;
-  min-width: 0;
-  padding-top: 8px;
-}
-.archive-token-hashes div {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  min-width: 0;
-  padding-top: 8px;
-  border-top: 1px solid var(--color-line);
-}
-.archive-token-hashes dd {
-  overflow-wrap: anywhere;
-}
-.archive-token-loading {
-  padding-top: 8px;
 }
 .archive-preview {
   display: grid;
