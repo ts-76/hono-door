@@ -461,16 +461,21 @@ function LinkListApp({
     }))
   }
 
-  const reissueLink = async (linkId: string) => {
+  const reissueLink = async (linkId: string, input?: IssuePolicyInput) => {
     const current = details[linkId]
     if (!authenticated || current?.status !== 'loaded' || pendingReissueLinkId !== undefined) return
 
     setPendingReissueLinkId(linkId)
     try {
-      const response = await fetch(`/admin/ui/api/links/${encodeURIComponent(linkId)}/reissue`, {
+      const request: RequestInit = {
         method: 'POST',
         credentials: 'same-origin',
-      })
+      }
+      if (input) {
+        request.headers = { 'Content-Type': 'application/json' }
+        request.body = JSON.stringify(input)
+      }
+      const response = await fetch(`/admin/ui/api/links/${encodeURIComponent(linkId)}/reissue`, request)
 
       if (!response.ok) {
         const error = await responseError(response)
@@ -640,7 +645,7 @@ function LinkListApp({
                     t={t}
                     locale={locale}
                     onSavePolicy={(input) => void saveIssuePolicy(link.linkId, input)}
-                    onReissue={() => void reissueLink(link.linkId)}
+                    onReissue={(input) => void reissueLink(link.linkId, input)}
                     reissuing={pendingReissueLinkId === link.linkId}
                     archiving={pendingArchiveLinkId === link.linkId}
                   />
@@ -702,7 +707,7 @@ function LinkDetails({
   t: AdminUiText
   locale: AdminUiLocale
   onSavePolicy(input: IssuePolicyInput): void
-  onReissue(): void
+  onReissue(input: IssuePolicyInput): void
   reissuing: boolean
   archiving: boolean
 }) {
@@ -742,7 +747,7 @@ function IssuePolicyForm({
   policy: IssuePolicy
   t: AdminUiText
   onSave(input: IssuePolicyInput): void
-  onReissue(): void
+  onReissue(input: IssuePolicyInput): void
   reissuing: boolean
   archiving: boolean
 }) {
@@ -752,15 +757,7 @@ function IssuePolicyForm({
       onSubmit={(event) => {
         event.preventDefault()
         const form = event.currentTarget as HTMLFormElement
-        const data = new FormData(form)
-        const label = formDataString(data, 'label')
-        const maxUses = formDataString(data, 'maxUses')
-        onSave({
-          ttl: formDataString(data, 'ttl') ?? String(policy.ttlSeconds),
-          role: formDataString(data, 'role') ?? policy.role,
-          label: label ?? null,
-          maxUses: maxUses ?? null,
-        })
+        onSave(issuePolicyInputFromForm(form, policy))
       }}
     >
       <section class="detail-section">
@@ -797,13 +794,33 @@ function IssuePolicyForm({
           <button type="submit" class="secondary">
             {t.saveIssuePolicy}
           </button>
-          <button type="button" disabled={reissuing || archiving} onClick={onReissue}>
+          <button
+            type="button"
+            disabled={reissuing || archiving}
+            onClick={(event) => {
+              const form = (event.currentTarget as HTMLButtonElement).form
+              if (!form) return
+              onReissue(issuePolicyInputFromForm(form, policy))
+            }}
+          >
             {reissuing ? t.reissuing : t.reissue}
           </button>
         </div>
       </section>
     </form>
   )
+}
+
+function issuePolicyInputFromForm(form: HTMLFormElement, policy: IssuePolicy): IssuePolicyInput {
+  const data = new FormData(form)
+  const label = formDataString(data, 'label')
+  const maxUses = formDataString(data, 'maxUses')
+  return {
+    ttl: formDataString(data, 'ttl') ?? String(policy.ttlSeconds),
+    role: formDataString(data, 'role') ?? policy.role,
+    label: label ?? null,
+    maxUses: maxUses ?? null,
+  }
 }
 
 function ReissuedResult({ t, result, locale }: { t: AdminUiText; result: AdminUiResult; locale: AdminUiLocale }) {

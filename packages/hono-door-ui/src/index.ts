@@ -256,7 +256,19 @@ export function createDoorUi<T extends HonoEnv>(
     const session = await readAdminSession(c, shortLink)
     if (!session.ok) return c.json({ error: session.error }, session.status)
 
-    const result = await shortLink.reissueLink(c, c.req.param('linkId'))
+    const linkId = c.req.param('linkId')
+    const json = await c.req.json().catch(() => undefined)
+    if (json !== undefined) {
+      const body = adminUiIssuePolicySchema.safeParse(json)
+      if (!body.success) {
+        return c.json({ error: adminUiText[getAdminUiLocale(c)].requiredFieldsInvalid }, 400)
+      }
+
+      const update = await shortLink.updateIssuePolicy(c, linkId, body.data)
+      if (!update.ok) return c.json({ error: update.error }, update.status)
+    }
+
+    const result = await shortLink.reissueLink(c, linkId)
     if (!result.ok) return c.json({ error: result.error }, result.status)
 
     return c.json({
