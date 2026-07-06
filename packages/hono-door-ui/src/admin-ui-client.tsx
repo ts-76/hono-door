@@ -2,6 +2,7 @@
 /// <reference lib="dom" />
 
 import { render, useEffect, useState } from 'hono/jsx/dom'
+import { adminUiDefaultLocale, adminUiText, resolveAdminUiLocale, type AdminUiLocale, type AdminUiText } from './i18n'
 
 type AdminUiValues = {
   adminToken?: string
@@ -34,6 +35,7 @@ type AdminIssuePayload = {
   result?: AdminUiResult
   error?: string
   authenticated?: boolean
+  locale?: AdminUiLocale
 }
 
 type LinkSummary = {
@@ -47,7 +49,6 @@ type LinkSummary = {
 type TokenSummary = {
   tokenHash: string
   label?: string
-  role: string
   roomId: string
   createdAt: string
   expiresAt: string
@@ -81,7 +82,6 @@ type ArchiveLinkDetail = ArchiveLinkSummary & {
 
 type IssuePolicy = {
   ttlSeconds: number
-  role: string
   label?: string
   maxUses?: number
 }
@@ -93,7 +93,8 @@ type LinkDetailsState =
       tokens: TokenSummary[]
       policy: IssuePolicy
       reissueResult?: AdminUiResult
-      message?: string
+      message?: string | undefined
+      error?: string | undefined
     }
   | { status: 'error'; error: string }
 
@@ -107,8 +108,11 @@ function IssueApp({
   result,
   error,
   authenticated: initialAuthenticated = false,
+  locale: initialLocale = adminUiDefaultLocale,
 }: AdminIssuePayload) {
   const [authenticated, setAuthenticated] = useState(initialAuthenticated)
+  const locale = resolveAdminUiLocale(initialLocale)
+  const t = adminUiText[locale]
 
   const logout = () => {
     setAuthenticated(false)
@@ -117,14 +121,14 @@ function IssueApp({
   if (!authenticated) {
     return (
       <>
-        {error ? <p class="alert">{error}</p> : null}
+        {error ? <p class="alert" role="alert">{error}</p> : null}
         <section class="step">
           <div class="step-body">
-            <h2>管理トークン</h2>
+            <h2>{t.adminToken}</h2>
             <p class="hint">
-              初回のみ管理トークンを入力してください。認証後は HttpOnly Cookie の管理セッションで操作します。
+              {t.adminTokenHint}
             </p>
-            <AdminLoginPanel onAuthenticated={() => setAuthenticated(true)} />
+            <AdminLoginPanel t={t} onAuthenticated={() => setAuthenticated(true)} />
           </div>
         </section>
       </>
@@ -133,61 +137,87 @@ function IssueApp({
 
   return (
     <>
-      <SessionBar onLogout={logout} />
-      {error ? <p class="alert">{error}</p> : null}
+      <SessionBar t={t} onLogout={logout} />
+      {error ? <p class="alert" role="alert">{error}</p> : null}
 
       <form method="post" class="steps">
         <section class="step">
           <div class="step-body">
-            <h2>リンクを発行</h2>
+            <h2>{t.issueTitle}</h2>
             <p class="hint">
-              Link ID は公開 URL のパスになります。Room ID はアプリケーション側で管理するデータのキーです。
+              {t.issueHint}
             </p>
-            <div class="grid">
-              <label>
-                Link ID
-                <input name="linkId" required defaultValue={values.linkId ?? ''} placeholder="summer-event" />
-              </label>
-              <label>
-                Room ID
-                <input name="roomId" required defaultValue={values.roomId ?? ''} placeholder="room-a" />
-              </label>
+
+            <div class="form-section">
+              <div class="form-section-heading">
+                <h3>{t.requiredInfo}</h3>
+                <p class="hint">{t.requiredInfoHint}</p>
+              </div>
+              <div class="grid">
+                <label>
+                  {t.publicPageId}
+                  <input
+                    name="linkId"
+                    required
+                    maxLength={128}
+                    pattern="[A-Za-z0-9][A-Za-z0-9._~-]*"
+                    defaultValue={values.linkId ?? ''}
+                    placeholder="summer-event"
+                  />
+                  <span class="field-help">{t.publicPageIdHelp}</span>
+                </label>
+                <label>
+                  {t.contentId}
+                  <input name="roomId" required maxLength={128} defaultValue={values.roomId ?? ''} placeholder="room-a" />
+                  <span class="field-help">{t.contentIdHelp}</span>
+                </label>
+              </div>
             </div>
-            <div class="grid">
-              <label>
-                有効期限
-                <input name="ttl" defaultValue={values.ttl ?? '1h'} placeholder="15m" />
-                <span class="field-help">例: 15m, 1h, 1d</span>
-              </label>
-              <label>
-                ラベル
-                <input name="label" defaultValue={values.label ?? ''} placeholder="staff" />
-                <span class="field-help">管理用のメモです。公開側では token の label として参照できます。</span>
-              </label>
-              <label>
-                最大利用回数
-                <input
-                  name="maxUses"
-                  inputmode="numeric"
-                  defaultValue={values.maxUses ?? ''}
-                  placeholder="空欄 = 無制限"
-                />
-                <span class="field-help">空欄の場合は期限まで回数制限なしです。</span>
-              </label>
+
+            <div class="form-section">
+              <div class="form-section-heading">
+                <h3>{t.issueConditions}</h3>
+                <p class="hint">{t.issueConditionsHint}</p>
+              </div>
+              <div class="grid">
+                <label>
+                  {t.ttl}
+                  <input name="ttl" defaultValue={values.ttl ?? '1h'} placeholder="15m" pattern="[0-9]+[smhd]?" />
+                  <span class="field-help">{t.ttlHelp}</span>
+                </label>
+                <label>
+                  {t.maxUses}
+                  <input
+                    name="maxUses"
+                    type="number"
+                    inputmode="numeric"
+                    min="1"
+                    step="1"
+                    defaultValue={values.maxUses ?? ''}
+                    placeholder={t.unlimitedPlaceholder}
+                  />
+                  <span class="field-help">{t.maxUsesHelp}</span>
+                </label>
+                <label>
+                  {t.label}
+                  <input name="label" maxLength={80} defaultValue={values.label ?? ''} placeholder="staff" />
+                  <span class="field-help">{t.labelHelp}</span>
+                </label>
+              </div>
             </div>
             <div class="step-controls">
-              <button type="submit">URL と QR を発行</button>
+              <button type="submit">{t.issueSubmit}</button>
             </div>
           </div>
         </section>
       </form>
 
-      {result ? <IssuedResult result={result} /> : null}
+      {result ? <IssuedResult t={t} result={result} locale={locale} /> : null}
     </>
   )
 }
 
-function AdminLoginPanel({ onAuthenticated }: { onAuthenticated: () => void }) {
+function AdminLoginPanel({ t, onAuthenticated }: { t: AdminUiText; onAuthenticated: () => void }) {
   const [adminToken, setAdminToken] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [error, setError] = useState<string>()
@@ -196,7 +226,7 @@ function AdminLoginPanel({ onAuthenticated }: { onAuthenticated: () => void }) {
     const token = adminToken.trim()
     if (!token) {
       setStatus('error')
-      setError('管理トークンを入力してください。')
+      setError(t.adminTokenRequired)
       return
     }
 
@@ -233,25 +263,25 @@ function AdminLoginPanel({ onAuthenticated }: { onAuthenticated: () => void }) {
         }}
       >
         <label>
-          管理トークン
+          {t.adminToken}
           <input
             type="password"
             autocomplete="current-password"
             value={adminToken}
             onInput={(event: Event) => setAdminToken((event.target as HTMLInputElement | null)?.value ?? '')}
-            placeholder="ADMIN_API_TOKEN"
+            placeholder={t.adminTokenPlaceholder}
           />
         </label>
         <button type="submit" disabled={status === 'loading'}>
-          {status === 'loading' ? '認証中' : 'ログイン'}
+          {status === 'loading' ? t.loggingIn : t.login}
         </button>
       </form>
-      {status === 'error' ? <p class="alert">{error}</p> : null}
+      {status === 'error' ? <p class="alert" role="alert">{error}</p> : null}
     </>
   )
 }
 
-function SessionBar({ onLogout }: { onLogout: () => void }) {
+function SessionBar({ t, onLogout }: { t: AdminUiText; onLogout: () => void }) {
   const [loggingOut, setLoggingOut] = useState(false)
 
   const logout = async () => {
@@ -266,39 +296,45 @@ function SessionBar({ onLogout }: { onLogout: () => void }) {
 
   return (
     <div class="session-bar">
-      <span>管理セッションで認証済み</span>
+      <span>{t.sessionAuthenticated}</span>
       <button type="button" class="secondary" disabled={loggingOut} onClick={() => void logout()}>
-        ログアウト
+        {t.logout}
       </button>
     </div>
   )
 }
 
-function IssuedResult({ result }: { result: AdminUiResult }) {
+function IssuedResult({ t, result, locale }: { t: AdminUiText; result: AdminUiResult; locale: AdminUiLocale }) {
   return (
-    <section class="result">
-      <h2>発行完了</h2>
-      <p class="hint">URL を共有するか、QR コードを読み取ってください。QR は正方形で表示されます。</p>
+    <section class="result handoff-result" aria-live="polite">
+      <h2>{t.issuedComplete}</h2>
+      <p class="one-time-warning">
+        {t.issuedWarning}
+      </p>
       <div class="issued-layout">
         <div class="issued-main">
           <label>
-            URL
+            {t.url}
             <input readonly value={result.url} />
           </label>
-          <div class="actions">
-            <a href={result.url} target="_blank" rel="noreferrer">
-              URL を開く
-            </a>
-          </div>
-          <LinkMeta link={result} />
+          <ResultActions t={t} result={result} />
+          <LinkMeta t={t} link={result} locale={locale} />
         </div>
-        <QrPanel qrSvg={result.qrSvg} />
+        <QrPanel t={t} qrSvg={result.qrSvg} />
       </div>
     </section>
   )
 }
 
-function LinkListApp({ authenticated: initialAuthenticated = false }: { authenticated?: boolean }) {
+function LinkListApp({
+  authenticated: initialAuthenticated = false,
+  locale: initialLocale = adminUiDefaultLocale,
+}: {
+  authenticated?: boolean
+  locale?: AdminUiLocale | undefined
+}) {
+  const locale = resolveAdminUiLocale(initialLocale)
+  const t = adminUiText[locale]
   const [authenticated, setAuthenticated] = useState(initialAuthenticated)
   const [links, setLinks] = useState<LinkSummary[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
@@ -317,7 +353,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
   const loadLinks = async (clearDetails = true) => {
     if (!authenticated) {
       setStatus('error')
-      setError('管理セッションが必要です。')
+      setError(t.sessionRequired)
       return
     }
 
@@ -336,12 +372,12 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
     }
 
     const body = (await response.json()) as { links?: LinkSummary[] }
-    setLinks(body.links ?? [])
+    const nextLinks = body.links ?? []
+    setLinks(nextLinks)
     setStatus('loaded')
-
     if (clearDetails) {
-      for (const linkId of openLinkIds) {
-        void loadDetails(linkId, { force: true })
+      for (const link of nextLinks) {
+        void loadDetails(link.linkId, { force: true })
       }
     }
   }
@@ -403,7 +439,10 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
       const error = await responseError(response)
       setDetails((records) => ({
         ...records,
-        [linkId]: { status: 'error', error },
+        [linkId]: {
+          ...current,
+          error,
+        },
       }))
       return
     }
@@ -414,27 +453,36 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
       [linkId]: {
         ...current,
         policy,
-        message: '発行設定を保存しました。',
+        message: t.issuePolicySaved,
+        error: undefined,
       },
     }))
   }
 
-  const reissueLink = async (linkId: string) => {
+  const reissueLink = async (linkId: string, input?: IssuePolicyInput) => {
     const current = details[linkId]
     if (!authenticated || current?.status !== 'loaded' || pendingReissueLinkId !== undefined) return
 
     setPendingReissueLinkId(linkId)
     try {
-      const response = await fetch(`/admin/ui/api/links/${encodeURIComponent(linkId)}/reissue`, {
+      const request: RequestInit = {
         method: 'POST',
         credentials: 'same-origin',
-      })
+      }
+      if (input) {
+        request.headers = { 'Content-Type': 'application/json' }
+        request.body = JSON.stringify(input)
+      }
+      const response = await fetch(`/admin/ui/api/links/${encodeURIComponent(linkId)}/reissue`, request)
 
       if (!response.ok) {
         const error = await responseError(response)
         setDetails((records) => ({
           ...records,
-          [linkId]: { status: 'error', error },
+          [linkId]: {
+            ...current,
+            error,
+          },
         }))
         return
       }
@@ -448,7 +496,8 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
             ? {
                 ...refreshed,
                 reissueResult: result,
-                message: `${result.revokedTokenCount ?? 0} 件の既存トークンを無効化して再発行しました。`,
+                message: t.reissueMessage(result.revokedTokenCount),
+                error: undefined,
               }
             : refreshed,
       }))
@@ -461,7 +510,7 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
   const archiveLink = async (linkId: string) => {
     const current = details[linkId]
     if (!authenticated || current?.status !== 'loaded' || pendingArchiveLinkId !== undefined) return
-    if (!window.confirm('このリンクの有効な token を無効化してアーカイブします。よろしいですか？')) return
+    if (!window.confirm(t.archiveConfirm)) return
 
     setPendingArchiveLinkId(linkId)
     try {
@@ -474,7 +523,10 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
         const error = await responseError(response)
         setDetails((records) => ({
           ...records,
-          [linkId]: { status: 'error', error },
+          [linkId]: {
+            ...current,
+            error,
+          },
         }))
         return
       }
@@ -484,7 +536,8 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
         ...records,
         [linkId]: {
           ...current,
-          message: `${result.revokedTokenCount} 件の有効 token を無効化してアーカイブしました。`,
+          message: t.archiveMessage(result.revokedTokenCount),
+          error: undefined,
         },
       }))
       setOpenLinkIds((currentOpen) => currentOpen.filter((openLinkId) => openLinkId !== linkId))
@@ -508,9 +561,10 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
     return (
       <>
         <p class="hint">
-          有効リンク一覧を見るには管理トークンでログインしてください。トークン自体は保存しません。
+          {t.activeLinksLoginHint}
         </p>
         <AdminLoginPanel
+          t={t}
           onAuthenticated={() => {
             setAuthenticated(true)
             setStatus('idle')
@@ -522,274 +576,304 @@ function LinkListApp({ authenticated: initialAuthenticated = false }: { authenti
 
   return (
     <>
-      <SessionBar onLogout={logout} />
-      <form
-        class="list-auth"
-        onSubmit={(event) => {
-          event.preventDefault()
-          void loadLinks()
-        }}
-      >
-        <button type="submit" disabled={status === 'loading'}>
-          {status === 'loading' ? '取得中' : '一覧を更新'}
-        </button>
-      </form>
-      <p class="hint">
-        一覧は管理セッションを使ってサーバー側の Registry から取得します。
-      </p>
-      {status === 'error' ? <p class="alert">{error}</p> : null}
+      <SessionBar t={t} onLogout={logout} />
       <div class="list-header">
         <div>
-          <h2>有効なリンク</h2>
+          <h2>{t.activeLinksSection}</h2>
+          <p class="hint">
+            {t.activeLinksSectionHint}
+          </p>
         </div>
+        <form
+          class="list-auth"
+          onSubmit={(event) => {
+            event.preventDefault()
+            void loadLinks()
+          }}
+        >
+          <button type="submit" class="secondary" disabled={status === 'loading'}>
+            {status === 'loading' ? t.loadingList : t.refreshList}
+          </button>
+        </form>
       </div>
+      {status === 'error' ? <p class="alert" role="alert">{error}</p> : null}
       {status === 'loaded' && links.length === 0 ? (
-        <p class="empty-state">有効なリンクはありません。期限切れ、無効化済み、利用上限到達済みのトークンは表示されません。</p>
+        <p class="empty-state">{t.noActiveLinks}</p>
       ) : null}
-      <div class="link-list">
-        {links.map((link) => (
-          <article class="link-item" key={link.linkId}>
-            <div class="link-item-main">
-              <h3>{link.linkId || 'link'}</h3>
-              <dl class="compact-meta">
-                <div>
-                  <dt>ルーム</dt>
-                  <dd>{link.currentRoomId}</dd>
+      {links.length > 0 ? (
+        <div class="link-list">
+          {links.map((link) => {
+            const detailOpen = openLinkIds.includes(link.linkId)
+            return (
+              <article class="link-item" key={link.linkId}>
+                <div class="active-link-row">
+                  <div class="link-item-main">
+                    <h3>{link.linkId || 'link'}</h3>
+                    <dl class="compact-meta">
+                      <div>
+                        <dt>{t.contentId}</dt>
+                        <dd>{link.currentRoomId}</dd>
+                      </div>
+                      <div>
+                        <dt>{t.latestExpiry}</dt>
+                        <dd>{formatDateTime(link.latestExpiresAt, locale)}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <ActiveRowActions
+                    t={t}
+                    detailsOpen={detailOpen}
+                    onToggleDetails={() => {
+                      setOpenLinkIds((current) =>
+                        current.includes(link.linkId)
+                          ? current.filter((openLinkId) => openLinkId !== link.linkId)
+                          : [...current, link.linkId],
+                      )
+                      void loadDetails(link.linkId)
+                    }}
+                    onArchive={() => void archiveLink(link.linkId)}
+                    archiving={pendingArchiveLinkId === link.linkId}
+                    disabled={pendingArchiveLinkId !== undefined || pendingReissueLinkId !== undefined}
+                  />
                 </div>
-                <div>
-                  <dt>有効トークン</dt>
-                  <dd>{link.activeTokenCount}</dd>
+                {detailOpen ? (
+                <div class="link-detail-body">
+                  <LinkDetails
+                    state={details[link.linkId]}
+                    t={t}
+                    locale={locale}
+                    onSavePolicy={(input) => void saveIssuePolicy(link.linkId, input)}
+                    onReissue={(input) => void reissueLink(link.linkId, input)}
+                    reissuing={pendingReissueLinkId === link.linkId}
+                    archiving={pendingArchiveLinkId === link.linkId}
+                  />
                 </div>
-                <div>
-                  <dt>最終期限</dt>
-                  <dd>{link.latestExpiresAt}</dd>
-                </div>
-              </dl>
-            </div>
-            <details
-              class="link-detail"
-              onToggle={(event: Event) => {
-                const opened = Boolean((event.target as HTMLDetailsElement | null)?.open)
-                setOpenLinkIds((current) =>
-                  opened
-                    ? current.includes(link.linkId)
-                      ? current
-                      : [...current, link.linkId]
-                    : current.filter((openLinkId) => openLinkId !== link.linkId),
-                )
-                if (opened) void loadDetails(link.linkId)
-              }}
-            >
-              <summary>詳細を見る</summary>
-              <div class="link-detail-body">
-                <p class="hint">
-                  raw token は保存していないため、この一覧から URL や QR は再表示できません。QR は発行直後の完了画面で共有してください。
-                </p>
-                <LinkDetails
-                  state={details[link.linkId]}
-                  onSavePolicy={(input) => void saveIssuePolicy(link.linkId, input)}
-                  onReissue={() => void reissueLink(link.linkId)}
-                  onArchive={() => void archiveLink(link.linkId)}
-                  reissuing={pendingReissueLinkId === link.linkId}
-                  archiving={pendingArchiveLinkId === link.linkId}
-                />
-              </div>
-            </details>
-          </article>
-        ))}
-      </div>
+                ) : null}
+              </article>
+            )
+          })}
+        </div>
+      ) : null}
     </>
   )
 }
 
 type IssuePolicyInput = {
   ttl?: string
-  role?: string
   label?: string | null
   maxUses?: string | null
 }
 
+function ActiveRowActions({
+  t,
+  detailsOpen,
+  onToggleDetails,
+  onArchive,
+  archiving,
+  disabled,
+}: {
+  t: AdminUiText
+  detailsOpen: boolean
+  onToggleDetails(): void
+  onArchive(): void
+  archiving: boolean
+  disabled: boolean
+}) {
+  return (
+    <aside class="active-row-actions">
+      <button type="button" class="secondary" onClick={onToggleDetails}>
+        {detailsOpen ? t.closeDetails : t.details}
+      </button>
+      <button type="button" class="danger" disabled={disabled || archiving} onClick={onArchive}>
+        {archiving ? t.archiving : t.archiveManual}
+      </button>
+    </aside>
+  )
+}
+
 function LinkDetails({
   state,
+  t,
+  locale,
   onSavePolicy,
   onReissue,
-  onArchive,
   reissuing,
   archiving,
 }: {
   state: LinkDetailsState | undefined
+  t: AdminUiText
+  locale: AdminUiLocale
   onSavePolicy(input: IssuePolicyInput): void
-  onReissue(): void
-  onArchive(): void
+  onReissue(input: IssuePolicyInput): void
   reissuing: boolean
   archiving: boolean
 }) {
   if (!state || state.status === 'loading') {
-    return <p class="empty-state">詳細を取得中です。</p>
+    return <p class="empty-state">{t.loadingDetails}</p>
   }
 
   if (state.status === 'error') {
-    return <p class="alert">{state.error}</p>
+    return <p class="alert" role="alert">{state.error}</p>
   }
 
   return (
     <div class="link-details-content">
-      {state.message ? <p class="hint status-message">{state.message}</p> : null}
+      {state.error ? <p class="alert" role="alert">{state.error}</p> : null}
+      {state.message ? <p class="hint status-message" role="status">{state.message}</p> : null}
+      {state.reissueResult ? <ReissuedResult t={t} result={state.reissueResult} locale={locale} /> : null}
       <IssuePolicyForm
+        t={t}
         policy={state.policy}
         onSave={onSavePolicy}
         onReissue={onReissue}
-        onArchive={onArchive}
         reissuing={reissuing}
         archiving={archiving}
       />
-      {state.reissueResult ? <ReissuedResult result={state.reissueResult} /> : null}
-      <TokenList tokens={state.tokens} />
     </div>
   )
 }
 
 function IssuePolicyForm({
   policy,
+  t,
   onSave,
   onReissue,
-  onArchive,
   reissuing,
   archiving,
 }: {
   policy: IssuePolicy
+  t: AdminUiText
   onSave(input: IssuePolicyInput): void
-  onReissue(): void
-  onArchive(): void
+  onReissue(input: IssuePolicyInput): void
   reissuing: boolean
   archiving: boolean
 }) {
+  const [ttl, setTtl] = useState(formatTtl(policy.ttlSeconds))
+  const [label, setLabel] = useState(policy.label ?? '')
+  const [maxUses, setMaxUses] = useState(policy.maxUses === undefined ? '' : String(policy.maxUses))
+
+  useEffect(() => {
+    setTtl(formatTtl(policy.ttlSeconds))
+    setLabel(policy.label ?? '')
+    setMaxUses(policy.maxUses === undefined ? '' : String(policy.maxUses))
+  }, [policy.ttlSeconds, policy.label, policy.maxUses])
+
   return (
     <form
       class="policy-form"
       onSubmit={(event) => {
         event.preventDefault()
         const form = event.currentTarget as HTMLFormElement
-        const data = new FormData(form)
-        const label = formDataString(data, 'label')
-        const maxUses = formDataString(data, 'maxUses')
-        onSave({
-          ttl: formDataString(data, 'ttl') ?? String(policy.ttlSeconds),
-          role: formDataString(data, 'role') ?? policy.role,
-          label: label ?? null,
-          maxUses: maxUses ?? null,
-        })
+        onSave(issuePolicyInputFromForm(form, policy))
       }}
     >
-      <h3>発行設定</h3>
-      <div class="grid">
-        <label>
-          有効期限
-          <input name="ttl" defaultValue={formatTtl(policy.ttlSeconds)} placeholder="15m" />
-        </label>
-        <label>
-          ロール
-          <input name="role" defaultValue={policy.role} placeholder="viewer" />
-        </label>
-        <label>
-          ラベル
-          <input name="label" defaultValue={policy.label ?? ''} placeholder="reissued" />
-        </label>
-        <label>
-          最大利用回数
-          <input name="maxUses" inputmode="numeric" defaultValue={policy.maxUses ?? ''} placeholder="空欄 = 無制限" />
-        </label>
-      </div>
-      <div class="step-controls">
-        <button type="submit" class="secondary">
-          発行設定を保存
-        </button>
-        <button type="button" disabled={reissuing || archiving} onClick={onReissue}>
-          {reissuing ? '再発行中' : 'URL/QR を再発行'}
-        </button>
-        <button type="button" class="danger" disabled={reissuing || archiving} onClick={onArchive}>
-          {archiving ? 'アーカイブ中' : '手動アーカイブ'}
-        </button>
-      </div>
+      <section class="detail-section">
+        <h3>{t.nextIssuePolicy}</h3>
+        <p class="hint">{t.nextIssuePolicyHint}</p>
+        <div class="grid">
+          <label>
+            {t.ttl}
+            <input
+              name="ttl"
+              value={ttl}
+              onInput={(event: Event) => setTtl((event.target as HTMLInputElement | null)?.value ?? '')}
+              placeholder="15m"
+              pattern="[0-9]+[smhd]?"
+            />
+            <span class="field-help">{t.currentSetting}: {formatDuration(policy.ttlSeconds, t)}</span>
+          </label>
+          <label>
+            {t.label}
+            <input
+              name="label"
+              maxLength={80}
+              value={label}
+              onInput={(event: Event) => setLabel((event.target as HTMLInputElement | null)?.value ?? '')}
+              placeholder="reissued"
+            />
+          </label>
+          <label>
+            {t.maxUses}
+            <input
+              name="maxUses"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              step="1"
+              value={maxUses}
+              onInput={(event: Event) => setMaxUses((event.target as HTMLInputElement | null)?.value ?? '')}
+              placeholder={t.unlimitedPlaceholder}
+            />
+          </label>
+        </div>
+        <div class="step-controls">
+          <button type="submit" class="secondary">
+            {t.saveIssuePolicy}
+          </button>
+          <button
+            type="button"
+            disabled={reissuing || archiving}
+            onClick={(event) => {
+              const form = (event.currentTarget as HTMLButtonElement).form
+              if (!form) return
+              onReissue(issuePolicyInputFromForm(form, policy))
+            }}
+          >
+            {reissuing ? t.reissuing : t.reissue}
+          </button>
+        </div>
+      </section>
     </form>
   )
 }
 
-function ReissuedResult({ result }: { result: AdminUiResult }) {
+function issuePolicyInputFromForm(form: HTMLFormElement, policy: IssuePolicy): IssuePolicyInput {
+  const data = new FormData(form)
+  const label = formDataString(data, 'label')
+  const maxUses = formDataString(data, 'maxUses')
+  return {
+    ttl: formDataString(data, 'ttl') ?? String(policy.ttlSeconds),
+    label: label ?? null,
+    maxUses: maxUses ?? null,
+  }
+}
+
+function ReissuedResult({ t, result, locale }: { t: AdminUiText; result: AdminUiResult; locale: AdminUiLocale }) {
   return (
-    <section class="reissue-result">
-      <h2>再発行完了</h2>
-      <p class="hint">古い有効トークンを無効化し、新しい URL と QR を発行しました。</p>
+    <section class="reissue-result handoff-result" aria-live="polite">
+      <h2>{t.reissuedComplete}</h2>
+      <p class="one-time-warning">{t.reissuedWarning}</p>
       <div class="issued-layout">
         <div class="issued-main">
           <label>
-            URL
+            {t.url}
             <input readonly value={result.url} />
           </label>
-          <div class="actions">
-            <a href={result.url} target="_blank" rel="noreferrer">
-              URL を開く
-            </a>
-          </div>
-          <LinkMeta link={result} />
+          <ResultActions t={t} result={result} />
+          <LinkMeta t={t} link={result} locale={locale} />
         </div>
-        <QrPanel qrSvg={result.qrSvg} />
+        <QrPanel t={t} qrSvg={result.qrSvg} />
       </div>
     </section>
   )
 }
 
-function TokenList({ tokens }: { tokens: TokenSummary[] }) {
-  if (tokens.length === 0) {
-    return <p class="empty-state">有効なトークンはありません。</p>
-  }
-
-  return (
-    <div class="token-list">
-      {tokens.map((token) => (
-        <article class="token-item" key={token.tokenHash}>
-          <dl>
-            <div>
-              <dt>ラベル</dt>
-              <dd>{token.label ?? '-'}</dd>
-            </div>
-            <div>
-              <dt>ロール</dt>
-              <dd>{token.role}</dd>
-            </div>
-            <div>
-              <dt>ルーム</dt>
-              <dd>{token.roomId}</dd>
-            </div>
-            <div>
-              <dt>期限</dt>
-              <dd>{token.expiresAt}</dd>
-            </div>
-            <div>
-              <dt>利用回数</dt>
-              <dd>
-                {token.useCount}
-                {token.maxUses ? ` / ${token.maxUses}` : ''}
-              </dd>
-            </div>
-            <div>
-              <dt>トークンハッシュ</dt>
-              <dd>{token.tokenHash}</dd>
-            </div>
-          </dl>
-        </article>
-      ))}
-    </div>
-  )
-}
-
-function ArchiveApp({ authenticated: initialAuthenticated = false }: { authenticated?: boolean }) {
+function ArchiveApp({
+  authenticated: initialAuthenticated = false,
+  locale: initialLocale = adminUiDefaultLocale,
+}: {
+  authenticated?: boolean
+  locale?: AdminUiLocale | undefined
+}) {
+  const locale = resolveAdminUiLocale(initialLocale)
+  const t = adminUiText[locale]
   const [authenticated, setAuthenticated] = useState(initialAuthenticated)
   const [query, setQuery] = useState('')
   const [links, setLinks] = useState<ArchiveLinkSummary[]>([])
   const [status, setStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle')
   const [error, setError] = useState<string>()
   const [details, setDetails] = useState<Record<string, ArchiveDetailState>>({})
+  const [pendingDeleteLinkId, setPendingDeleteLinkId] = useState<string>()
 
   useEffect(() => {
     if (authenticated && status === 'idle') {
@@ -800,7 +884,7 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
   const loadArchive = async () => {
     if (!authenticated) {
       setStatus('error')
-      setError('管理セッションが必要です。')
+      setError(t.sessionRequired)
       return
     }
 
@@ -820,8 +904,12 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
     }
 
     const body = (await response.json()) as { links?: ArchiveLinkSummary[] }
-    setLinks(body.links ?? [])
+    const nextLinks = body.links ?? []
+    setLinks(nextLinks)
     setStatus('loaded')
+    for (const link of nextLinks) {
+      void loadDetail(link.linkId, { force: true })
+    }
   }
 
   const loadDetail = async (linkId: string, options: { force?: boolean } = {}) => {
@@ -851,18 +939,48 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
     }))
   }
 
+  const deleteArchiveLink = async (linkId: string) => {
+    if (pendingDeleteLinkId !== undefined) return
+    if (!window.confirm(t.deleteArchiveConfirm)) return
+
+    setPendingDeleteLinkId(linkId)
+    setError(undefined)
+    try {
+      const response = await fetch(`/admin/ui/api/links/archive/${encodeURIComponent(linkId)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin',
+      })
+      if (!response.ok) {
+        setStatus('error')
+        setError(await responseError(response))
+        return
+      }
+
+      setLinks((current) => current.filter((link) => link.linkId !== linkId))
+      setDetails((current) => {
+        const next = { ...current }
+        delete next[linkId]
+        return next
+      })
+    } finally {
+      setPendingDeleteLinkId(undefined)
+    }
+  }
+
   const logout = () => {
     setAuthenticated(false)
     setStatus('idle')
     setLinks([])
     setDetails({})
+    setPendingDeleteLinkId(undefined)
   }
 
   if (!authenticated) {
     return (
       <>
-        <p class="hint">アーカイブを見るには管理トークンでログインしてください。</p>
+        <p class="hint">{t.archiveLoginHint}</p>
         <AdminLoginPanel
+          t={t}
           onAuthenticated={() => {
             setAuthenticated(true)
             setStatus('idle')
@@ -874,7 +992,7 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
 
   return (
     <>
-      <SessionBar onLogout={logout} />
+      <SessionBar t={t} onLogout={logout} />
       <form
         class="list-auth"
         onSubmit={(event) => {
@@ -883,7 +1001,7 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
         }}
       >
         <label>
-          検索
+          {t.search}
           <input
             value={query}
             onInput={(event: Event) => setQuery((event.target as HTMLInputElement | null)?.value ?? '')}
@@ -891,192 +1009,87 @@ function ArchiveApp({ authenticated: initialAuthenticated = false }: { authentic
           />
         </label>
         <button type="submit" disabled={status === 'loading'}>
-          {status === 'loading' ? '検索中' : 'アーカイブを検索'}
+          {status === 'loading' ? t.searching : t.archiveSearch}
         </button>
       </form>
-      <p class="hint">期限切れ、無効化済み、利用上限到達済みのリンクを表示します。</p>
-      {status === 'error' ? <p class="alert">{error}</p> : null}
+      <p class="hint">{t.archiveSearchHint}</p>
+      {status === 'error' ? <p class="alert" role="alert">{error}</p> : null}
       {status === 'loaded' && links.length === 0 ? (
-        <p class="empty-state">該当するアーカイブはありません。</p>
+        <p class="empty-state">{t.noArchive}</p>
       ) : null}
-      <div class="link-list">
-        {links.map((link) => (
-          <article class="link-item" key={link.linkId}>
-            <div class="link-item-main">
-              <h3>{link.linkId}</h3>
-              <dl class="compact-meta">
-                <div>
-                  <dt>ルーム</dt>
-                  <dd>{link.currentRoomId}</dd>
+      {links.length > 0 ? (
+        <div class="link-list">
+          {links.map((link) => (
+            <article class="link-item" key={link.linkId}>
+              <div class="archive-link-row">
+                <div class="link-item-main">
+                  <h3>{link.linkId}</h3>
+                  <dl class="compact-meta">
+                    <div>
+                      <dt>{t.contentId}</dt>
+                      <dd>{link.currentRoomId}</dd>
+                    </div>
+                    <div>
+                      <dt>{t.latestExpiry}</dt>
+                      <dd>{link.latestExpiresAt ? formatDateTime(link.latestExpiresAt, locale) : t.none}</dd>
+                    </div>
+                  </dl>
                 </div>
-                <div>
-                  <dt>トークン数</dt>
-                  <dd>{link.tokenCount}</dd>
-                </div>
-                <div>
-                  <dt>最終期限</dt>
-                  <dd>{link.latestExpiresAt ?? '-'}</dd>
-                </div>
-              </dl>
-              <RoomPreview room={link.latestRoom} />
-            </div>
-            <details
-              class="link-detail"
-              onToggle={(event: Event) => {
-                const opened = Boolean((event.target as HTMLDetailsElement | null)?.open)
-                if (opened) void loadDetail(link.linkId)
-              }}
-            >
-              <summary>投稿内容と履歴を見る</summary>
-              <div class="link-detail-body">
-                <ArchiveDetails
+                <ArchiveRowActions
+                  t={t}
                   linkId={link.linkId}
-                  state={details[link.linkId]}
+                  room={link.latestRoom}
+                  onDelete={() => void deleteArchiveLink(link.linkId)}
+                  deleting={pendingDeleteLinkId === link.linkId}
+                  deleteDisabled={pendingDeleteLinkId !== undefined}
                 />
               </div>
-            </details>
-          </article>
-        ))}
-      </div>
+            </article>
+          ))}
+        </div>
+      ) : null}
     </>
   )
 }
 
-function ArchiveDetails({
+function ArchiveRowActions({
+  t,
   linkId,
-  state,
+  room,
+  onDelete,
+  deleting,
+  deleteDisabled,
 }: {
+  t: AdminUiText
   linkId: string
-  state: ArchiveDetailState | undefined
+  room?: RoomSnapshot | undefined
+  onDelete: () => void
+  deleting: boolean
+  deleteDisabled: boolean
 }) {
-  if (!state || state.status === 'loading') {
-    return <p class="empty-state">詳細を取得中です。</p>
-  }
-
-  if (state.status === 'error') {
-    return <p class="alert">{state.error}</p>
-  }
-
   return (
-    <div class="link-details-content">
-      <p class="hint">
-        アーカイブの再閲覧は管理セッション必須のプレビューで行います。公開 URL や新しい token は発行しません。
-      </p>
-      <section class="archive-room">
-        <h3>投稿内容</h3>
-        {state.detail.rooms.length === 0 ? (
-          <p class="empty-state">保存済みの投稿内容はありません。</p>
-        ) : (
-          state.detail.rooms.map((room) => <RoomCard linkId={linkId} room={room} key={room.roomId} />)
-        )}
-      </section>
-      <ArchiveTokenList tokens={state.detail.tokens} />
-    </div>
+    <aside class="archive-actions">
+      <PreviewLink t={t} linkId={linkId} room={room} />
+      <button type="button" class="danger archive-delete-button" disabled={deleteDisabled} onClick={onDelete}>
+        {deleting ? t.deletingArchive : t.deleteArchive}
+      </button>
+    </aside>
   )
 }
 
-function RoomPreview({ room }: { room?: RoomSnapshot | undefined }) {
-  if (!room) return null
+function PreviewLink({ t, linkId, room }: { t: AdminUiText; linkId: string; room?: RoomSnapshot | undefined }) {
+  if (!room) return <p class="hint archive-preview-unavailable">{t.previewUnavailable}</p>
+  const previewPath = archivePreviewPath(linkId, room.roomId)
+
   return (
-    <p class="hint">
-      {room.title ? `${room.title} / ` : ''}
-      {room.body ? truncate(room.body, 120) : '本文なし'}
-    </p>
+    <a class="inline-link archive-preview-link" href={previewPath} target="_blank" rel="noreferrer">
+      {t.openAdminPreview}
+    </a>
   )
 }
 
-function RoomCard({ linkId, room }: { linkId: string; room: RoomSnapshot }) {
-  const previewPath = `/admin/ui/archive/${encodeURIComponent(linkId)}/rooms/${encodeURIComponent(room.roomId)}/preview`
-
-  return (
-    <article class="token-item">
-      <dl>
-        <div>
-          <dt>Room ID</dt>
-          <dd>{room.roomId}</dd>
-        </div>
-        <div>
-          <dt>タイトル</dt>
-          <dd>{room.title ?? '-'}</dd>
-        </div>
-        <div>
-          <dt>本文</dt>
-          <dd>{room.body ?? '-'}</dd>
-        </div>
-        <div>
-          <dt>更新日時</dt>
-          <dd>{room.updatedAt}</dd>
-        </div>
-      </dl>
-      <div class="actions">
-        <a href={previewPath} target="_blank" rel="noreferrer">
-          管理プレビューを開く
-        </a>
-      </div>
-    </article>
-  )
-}
-
-function ArchiveTokenList({ tokens }: { tokens: TokenSummary[] }) {
-  if (tokens.length === 0) {
-    return <p class="empty-state">保存済みのトークン履歴はありません。</p>
-  }
-
-  return (
-    <div class="token-list">
-      <h3>トークン履歴</h3>
-      {tokens.map((token) => (
-        <article class="token-item" key={token.tokenHash}>
-          <dl>
-            <div>
-              <dt>状態</dt>
-              <dd>{formatTokenState(token.state)}</dd>
-            </div>
-            <div>
-              <dt>ラベル</dt>
-              <dd>{token.label ?? '-'}</dd>
-            </div>
-            <div>
-              <dt>ロール</dt>
-              <dd>{token.role}</dd>
-            </div>
-            <div>
-              <dt>期限</dt>
-              <dd>{token.expiresAt}</dd>
-            </div>
-            <div>
-              <dt>無効化</dt>
-              <dd>{token.revokedAt ?? '-'}</dd>
-            </div>
-            <div>
-              <dt>利用回数</dt>
-              <dd>
-                {token.useCount}
-                {token.maxUses ? ` / ${token.maxUses}` : ''}
-              </dd>
-            </div>
-            <div>
-              <dt>トークンハッシュ</dt>
-              <dd>{token.tokenHash}</dd>
-            </div>
-          </dl>
-        </article>
-      ))}
-    </div>
-  )
-}
-
-function formatTokenState(state: TokenSummary['state']): string {
-  if (state === 'active') return '有効'
-  if (state === 'expired') return '期限切れ'
-  if (state === 'revoked') return '無効化済み'
-  if (state === 'max_uses_reached') return '利用上限到達'
-  return '-'
-}
-
-function truncate(value: string, maxLength: number): string {
-  if (value.length <= maxLength) return value
-  return `${value.slice(0, maxLength)}...`
+function archivePreviewPath(linkId: string, roomId: string) {
+  return `/admin/ui/archive/${encodeURIComponent(linkId)}/rooms/${encodeURIComponent(roomId)}/preview`
 }
 
 function formDataString(data: FormData, name: string): string | undefined {
@@ -1091,31 +1104,128 @@ function formatTtl(seconds: number): string {
   return String(seconds)
 }
 
-function LinkMeta({ link }: { link: Pick<AdminUiResult, 'expiresAt' | 'roomId' | 'tokenHash'> }) {
+function LinkMeta({ t, link, locale }: { t: AdminUiText; link: Pick<AdminUiResult, 'expiresAt' | 'roomId'>; locale: AdminUiLocale }) {
   return (
     <dl>
       <div>
-        <dt>期限</dt>
-        <dd>{link.expiresAt}</dd>
+        <dt>{t.expires}</dt>
+        <dd>{formatDateTime(link.expiresAt, locale)}</dd>
       </div>
       <div>
-        <dt>ルーム</dt>
+        <dt>{t.contentId}</dt>
         <dd>{link.roomId}</dd>
-      </div>
-      <div>
-        <dt>トークンハッシュ</dt>
-        <dd>{link.tokenHash}</dd>
       </div>
     </dl>
   )
 }
 
-function QrPanel({ qrSvg }: { qrSvg: string }) {
+function ResultActions({ t, result }: { t: AdminUiText; result: AdminUiResult }) {
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle')
+  const [downloadStatus, setDownloadStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+
+  const copyUrl = async () => {
+    setCopyStatus('copied')
+    const copied = await copyText(result.url)
+    if (!copied) setCopyStatus('error')
+  }
+
+  const downloadQr = () => {
+    try {
+      const blob = new Blob([result.qrSvg], { type: 'image/svg+xml;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `${safeFilename(result.linkId || 'hono-door-link')}-qr.svg`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+      setDownloadStatus('saved')
+    } catch {
+      setDownloadStatus('error')
+    }
+  }
+
+  return (
+    <>
+      <div class="actions result-actions">
+        <button type="button" onClick={() => void copyUrl()}>
+          {t.copyUrl}
+        </button>
+        <button type="button" class="secondary" onClick={downloadQr}>
+          {t.saveQr}
+        </button>
+        <a href={result.url} target="_blank" rel="noreferrer">
+          {t.openUrl}
+        </a>
+      </div>
+      <p class="field-help" role="status" aria-live="polite">
+        {copyStatus === 'copied'
+          ? t.copySuccess
+          : copyStatus === 'error'
+            ? t.copyError
+            : downloadStatus === 'saved'
+              ? t.qrSaveSuccess
+              : downloadStatus === 'error'
+                ? t.qrSaveError
+                : t.copyOrSaveHint}
+      </p>
+    </>
+  )
+}
+
+function QrPanel({ t, qrSvg }: { t: AdminUiText; qrSvg: string }) {
   return (
     <div class="qr-panel">
-      <div class="qr-code" aria-label="QR コード" dangerouslySetInnerHTML={{ __html: qrSvg }} />
+      <div class="qr-code" aria-label={t.qrCode} dangerouslySetInnerHTML={{ __html: qrSvg }} />
     </div>
   )
+}
+
+async function copyText(value: string): Promise<boolean> {
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value)
+      return true
+    } catch {
+      // Continue to the textarea fallback for browsers that block clipboard permissions.
+    }
+  }
+
+  const textarea = document.createElement('textarea')
+  textarea.value = value
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.inset = '0 auto auto -9999px'
+  document.body.appendChild(textarea)
+  textarea.select()
+  try {
+    return document.execCommand('copy')
+  } catch {
+    return false
+  } finally {
+    textarea.remove()
+  }
+}
+
+function safeFilename(value: string): string {
+  return value.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'hono-door-link'
+}
+
+function formatDateTime(value: string, locale: AdminUiLocale): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat(locale === 'ja' ? 'ja-JP' : 'en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function formatDuration(seconds: number, t: AdminUiText): string {
+  if (seconds % 86400 === 0) return t === adminUiText.ja ? `${seconds / 86400}日` : `${seconds / 86400}d`
+  if (seconds % 3600 === 0) return t === adminUiText.ja ? `${seconds / 3600}時間` : `${seconds / 3600}h`
+  if (seconds % 60 === 0) return t === adminUiText.ja ? `${seconds / 60}分` : `${seconds / 60}m`
+  return t === adminUiText.ja ? `${seconds}秒` : `${seconds}s`
 }
 
 function readIssuePayload(): AdminIssuePayload {
@@ -1147,10 +1257,10 @@ if (issueRoot) {
 
 const listRoot = document.getElementById('admin-link-list-root')
 if (listRoot) {
-  render(<LinkListApp authenticated={Boolean(adminUiPayload.authenticated)} />, listRoot)
+  render(<LinkListApp authenticated={Boolean(adminUiPayload.authenticated)} locale={adminUiPayload.locale} />, listRoot)
 }
 
 const archiveRoot = document.getElementById('admin-archive-root')
 if (archiveRoot) {
-  render(<ArchiveApp authenticated={Boolean(adminUiPayload.authenticated)} />, archiveRoot)
+  render(<ArchiveApp authenticated={Boolean(adminUiPayload.authenticated)} locale={adminUiPayload.locale} />, archiveRoot)
 }

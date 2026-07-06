@@ -40,7 +40,6 @@ export type RegistryRecordTokenIssuedInput = {
   linkId: string
   tokenHash: string
   label?: string | undefined
-  role: string
   roomId: string
   createdAt: number
   expiresAt: number
@@ -50,6 +49,14 @@ export type RegistryRecordTokenIssuedInput = {
 export type RegistryRecordRoomInput = {
   title?: string | undefined
   body?: string | undefined
+}
+
+type RoomLinkRow = {
+  link_id: string
+}
+
+type RoomIdRow = {
+  room_id: string
 }
 
 type LinkSummaryRow = {
@@ -98,7 +105,6 @@ const REGISTRY_MIGRATIONS: SqlMigration[] = [
           token_hash TEXT PRIMARY KEY,
           link_id TEXT NOT NULL,
           label TEXT,
-          role TEXT NOT NULL,
           room_id TEXT NOT NULL,
           created_at INTEGER NOT NULL,
           expires_at INTEGER NOT NULL,
@@ -179,17 +185,15 @@ export class Registry extends DurableObject<unknown> {
             token_hash,
             link_id,
             label,
-            role,
             room_id,
             created_at,
             expires_at,
             max_uses,
             use_count
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 0)
           ON CONFLICT(token_hash) DO UPDATE SET
             link_id = excluded.link_id,
             label = excluded.label,
-            role = excluded.role,
             room_id = excluded.room_id,
             created_at = excluded.created_at,
             expires_at = excluded.expires_at,
@@ -200,7 +204,6 @@ export class Registry extends DurableObject<unknown> {
         input.tokenHash,
         input.linkId,
         input.label ?? null,
-        input.role,
         input.roomId,
         input.createdAt,
         input.expiresAt,
@@ -247,6 +250,101 @@ export class Registry extends DurableObject<unknown> {
     )
 
     return { recorded: true }
+  }
+
+  findRoomLinkIds(roomId: string): { linkIds: string[] } {
+    const rows = this.ctx.storage.sql
+      .exec<RoomLinkRow>(
+        `
+          SELECT link_id
+          FROM links
+          WHERE current_room_id = ?
+          UNION
+          SELECT link_id
+          FROM tokens
+          WHERE room_id = ?
+          ORDER BY link_id ASC;
+        `,
+        roomId,
+        roomId,
+      )
+      .toArray()
+
+    return { linkIds: rows.map((row) => row.link_id) }
+  }
+
+  deleteArchivedLink(linkId: string): { deleted: boolean } {
+    const row = this.ctx.storage.sql
+      .exec<{ link_id: string }>(
+        `
+          SELECT link_id
+          FROM links
+          WHERE link_id = ?;
+        `,
+        linkId,
+      )
+      .toArray()[0]
+
+    if (!row) return { deleted: false }
+
+    const rooms = this.ctx.storage.sql
+      .exec<RoomIdRow>(
+        `
+          SELECT current_room_id AS room_id
+          FROM links
+          WHERE link_id = ?
+          UNION
+          SELECT room_id
+          FROM tokens
+          WHERE link_id = ?;
+        `,
+        linkId,
+        linkId,
+      )
+      .toArray()
+      .map((room) => room.room_id)
+
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec(
+        `
+          DELETE FROM tokens
+          WHERE link_id = ?;
+        `,
+        linkId,
+      )
+      this.ctx.storage.sql.exec(
+        `
+          DELETE FROM links
+          WHERE link_id = ?;
+        `,
+        linkId,
+      )
+
+      for (const roomId of rooms) {
+        this.ctx.storage.sql.exec(
+          `
+            DELETE FROM rooms
+            WHERE
+              room_id = ?
+              AND NOT EXISTS (
+                SELECT 1
+                FROM links
+                WHERE current_room_id = ?
+              )
+              AND NOT EXISTS (
+                SELECT 1
+                FROM tokens
+                WHERE room_id = ?
+              );
+          `,
+          roomId,
+          roomId,
+          roomId,
+        )
+      }
+    })
+
+    return { deleted: true }
   }
 
   recordTokenRevoked(linkId: string, tokenHash: string): { revoked: boolean } {

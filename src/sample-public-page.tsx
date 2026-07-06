@@ -57,10 +57,6 @@ function MetaList({
         <dd>{label}</dd>
       </div>
       <div class="meta">
-        <dt>Role</dt>
-        <dd>{link.role}</dd>
-      </div>
-      <div class="meta">
         <dt>Expires</dt>
         <dd>{expiresAt}</dd>
       </div>

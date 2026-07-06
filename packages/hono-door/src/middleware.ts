@@ -75,7 +75,6 @@ export function createProtect<T extends HonoEnv>(
         linkId,
         tokenHash: access.tokenHash,
         label: access.label,
-        role: access.role,
         expiresAt: access.expiresAt,
         roomId: access.roomId,
         room: state,

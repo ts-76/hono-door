@@ -19,7 +19,6 @@ export type ShortLinkContext = {
   linkId: string
   tokenHash: string
   label?: string | undefined
-  role: string
   expiresAt: number
   roomId: string
   room: RoomState
@@ -92,8 +91,6 @@ export type ShortLinkIssueLinkRoomInput =
   | string
   | {
       id: string
-      title?: string | undefined
-      body?: string | undefined
     }
 
 export type ShortLinkIssueLinkInput = {
@@ -101,11 +98,8 @@ export type ShortLinkIssueLinkInput = {
   ttl?: string | number | undefined
   roomId?: string | undefined
   room?: ShortLinkIssueLinkRoomInput | undefined
-  role?: string | undefined
   label?: string | undefined
   maxUses?: string | number | undefined
-  title?: string | undefined
-  body?: string | undefined
 }
 
 export type ShortLinkIssuedLink = {
@@ -119,7 +113,6 @@ export type ShortLinkIssuedLink = {
 
 export type ShortLinkIssuePolicyInput = {
   ttl?: string | number | undefined
-  role?: string | undefined
   label?: string | null | undefined
   maxUses?: string | number | null | undefined
 }
@@ -133,6 +126,11 @@ export type ShortLinkArchivedLink = {
   linkId: string
   archived: true
   revokedTokenCount: number
+}
+
+export type ShortLinkDeletedLink = {
+  linkId: string
+  deleted: true
 }
 
 export type ShortLinkArchiveSearchInput = {

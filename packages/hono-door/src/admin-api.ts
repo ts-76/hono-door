@@ -6,6 +6,7 @@ import type {
   DoorConfig,
   ShortLinkArchivedLink,
   ShortLinkArchiveSearchInput,
+  ShortLinkDeletedLink,
   ShortLinkIssuePolicyInput,
   ShortLinkIssuedLink,
   ShortLinkIssueLinkInput,
@@ -36,6 +37,11 @@ type CreateAdminApiOptions<T extends HonoEnv> = {
     c: Context<T>,
     linkId: string,
   ): Promise<ShortLinkOperationResult<{ tokens: PublicLinkTokenSummary[] }>>
+  revokeLinkToken(
+    c: Context<T>,
+    linkId: string,
+    tokenHash: string,
+  ): Promise<ShortLinkOperationResult<{ revoked: boolean }>>
   getIssuePolicy(
     c: Context<T>,
     linkId: string,
@@ -53,12 +59,15 @@ type CreateAdminApiOptions<T extends HonoEnv> = {
     c: Context<T>,
     linkId: string,
   ): Promise<ShortLinkOperationResult<ShortLinkArchivedLink>>
+  deleteArchivedLink(
+    c: Context<T>,
+    linkId: string,
+  ): Promise<ShortLinkOperationResult<ShortLinkDeletedLink>>
 }
 
 const issueTokenSchema = z.object({
   ttl: z.union([z.string().min(1), z.number().int().positive()]).default('1h'),
   label: z.string().min(1).optional(),
-  role: z.string().min(1).default('viewer'),
   roomId: z.string().min(1).optional(),
   maxUses: z.union([z.number().int().positive(), z.string().min(1)]).optional(),
 })
@@ -66,7 +75,6 @@ const issueTokenSchema = z.object({
 const issuePolicySchema = z.object({
   ttl: z.union([z.string().min(1), z.number().int().positive()]).optional(),
   label: z.string().min(1).nullable().optional(),
-  role: z.string().min(1).optional(),
   maxUses: z.union([z.number().int().positive(), z.string().min(1)]).nullable().optional(),
 })
 
@@ -91,10 +99,12 @@ export function createAdminApi<T extends HonoEnv>({
   listArchivedLinks,
   getArchivedLink,
   listLinkTokens,
+  revokeLinkToken,
   getIssuePolicy,
   updateIssuePolicy,
   reissueLink,
   archiveLink,
+  deleteArchivedLink,
 }: CreateAdminApiOptions<T>): Hono<T> {
   const routes = new Hono<T>()
 
@@ -119,6 +129,12 @@ export function createAdminApi<T extends HonoEnv>({
 
   routes.get('/links/archive/:linkId', async (c) => {
     const result = await getArchivedLink(c, c.req.param('linkId'))
+    if (!result.ok) return c.json({ error: result.error }, result.status)
+    return c.json(result.value)
+  })
+
+  routes.delete('/links/archive/:linkId', async (c) => {
+    const result = await deleteArchivedLink(c, c.req.param('linkId'))
     if (!result.ok) return c.json({ error: result.error }, result.status)
     return c.json(result.value)
   })
@@ -168,7 +184,6 @@ export function createAdminApi<T extends HonoEnv>({
     const result = await issueLink(c, {
       linkId: c.req.param('linkId'),
       ttl: body.value.ttl,
-      role: body.value.role,
       roomId: body.value.roomId,
       label: body.value.label,
       maxUses: body.value.maxUses,
@@ -190,11 +205,20 @@ export function createAdminApi<T extends HonoEnv>({
     const body = await parseJson(c, switchRoomSchema)
     if (!body.ok) return body.response
 
-    const link = resolve(config.publicLinks, c).getByName(c.req.param('linkId'))
+    const linkId = c.req.param('linkId')
+    const registry = resolve(config.registry, c).getByName('default')
+    const usage = await registry.findRoomLinkIds(body.value.roomId)
+    const conflictingLinkId = usage.linkIds.find((candidate) => candidate !== linkId)
+    if (conflictingLinkId !== undefined) {
+      return c.json(
+        { error: `roomId "${body.value.roomId}" is already used by link "${conflictingLinkId}". Use a unique roomId.` },
+        409,
+      )
+    }
+
+    const link = resolve(config.publicLinks, c).getByName(linkId)
     const result = await link.switchRoom(body.value.roomId)
-    await resolve(config.registry, c)
-      .getByName('default')
-      .recordLinkRoomSwitch(c.req.param('linkId'), body.value.roomId)
+    await registry.recordLinkRoomSwitch(linkId, body.value.roomId)
 
     return c.json(result)
   })
@@ -203,15 +227,12 @@ export function createAdminApi<T extends HonoEnv>({
     const body = await parseJson(c, revokeSchema)
     if (!body.ok) return body.response
 
-    const link = resolve(config.publicLinks, c).getByName(c.req.param('linkId'))
-    const result = await link.revokeToken(body.value.tokenHash)
-    if (result.revoked) {
-      await resolve(config.registry, c)
-        .getByName('default')
-        .recordTokenRevoked(c.req.param('linkId'), body.value.tokenHash)
+    const result = await revokeLinkToken(c, c.req.param('linkId'), body.value.tokenHash)
+    if (!result.ok) {
+      return c.json({ error: result.error }, result.status)
     }
 
-    return c.json(result)
+    return c.json(result.value)
   })
 
   routes.post('/rooms/:roomId', async (c) => {
