@@ -751,6 +751,18 @@ function IssuePolicyForm({
   reissuing: boolean
   archiving: boolean
 }) {
+  const [ttl, setTtl] = useState(formatTtl(policy.ttlSeconds))
+  const [role, setRole] = useState(policy.role)
+  const [label, setLabel] = useState(policy.label ?? '')
+  const [maxUses, setMaxUses] = useState(policy.maxUses === undefined ? '' : String(policy.maxUses))
+
+  useEffect(() => {
+    setTtl(formatTtl(policy.ttlSeconds))
+    setRole(policy.role)
+    setLabel(policy.label ?? '')
+    setMaxUses(policy.maxUses === undefined ? '' : String(policy.maxUses))
+  }, [policy.ttlSeconds, policy.role, policy.label, policy.maxUses])
+
   return (
     <form
       class="policy-form"
@@ -766,16 +778,34 @@ function IssuePolicyForm({
         <div class="grid">
           <label>
             {t.ttl}
-            <input name="ttl" defaultValue={formatTtl(policy.ttlSeconds)} placeholder="15m" pattern="[0-9]+[smhd]?" />
+            <input
+              name="ttl"
+              value={ttl}
+              onInput={(event: Event) => setTtl((event.target as HTMLInputElement | null)?.value ?? '')}
+              placeholder="15m"
+              pattern="[0-9]+[smhd]?"
+            />
             <span class="field-help">{t.currentSetting}: {formatDuration(policy.ttlSeconds, t)}</span>
           </label>
           <label>
             {t.role}
-            <input name="role" maxLength={80} defaultValue={policy.role} placeholder="viewer" />
+            <input
+              name="role"
+              maxLength={80}
+              value={role}
+              onInput={(event: Event) => setRole((event.target as HTMLInputElement | null)?.value ?? '')}
+              placeholder="viewer"
+            />
           </label>
           <label>
             {t.label}
-            <input name="label" maxLength={80} defaultValue={policy.label ?? ''} placeholder="reissued" />
+            <input
+              name="label"
+              maxLength={80}
+              value={label}
+              onInput={(event: Event) => setLabel((event.target as HTMLInputElement | null)?.value ?? '')}
+              placeholder="reissued"
+            />
           </label>
           <label>
             {t.maxUses}
@@ -785,7 +815,8 @@ function IssuePolicyForm({
               inputmode="numeric"
               min="1"
               step="1"
-              defaultValue={policy.maxUses ?? ''}
+              value={maxUses}
+              onInput={(event: Event) => setMaxUses((event.target as HTMLInputElement | null)?.value ?? '')}
               placeholder={t.unlimitedPlaceholder}
             />
           </label>
