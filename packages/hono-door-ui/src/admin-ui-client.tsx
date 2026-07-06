@@ -752,16 +752,14 @@ function IssuePolicyForm({
   archiving: boolean
 }) {
   const [ttl, setTtl] = useState(formatTtl(policy.ttlSeconds))
-  const [role, setRole] = useState(policy.role)
   const [label, setLabel] = useState(policy.label ?? '')
   const [maxUses, setMaxUses] = useState(policy.maxUses === undefined ? '' : String(policy.maxUses))
 
   useEffect(() => {
     setTtl(formatTtl(policy.ttlSeconds))
-    setRole(policy.role)
     setLabel(policy.label ?? '')
     setMaxUses(policy.maxUses === undefined ? '' : String(policy.maxUses))
-  }, [policy.ttlSeconds, policy.role, policy.label, policy.maxUses])
+  }, [policy.ttlSeconds, policy.label, policy.maxUses])
 
   return (
     <form
@@ -786,16 +784,6 @@ function IssuePolicyForm({
               pattern="[0-9]+[smhd]?"
             />
             <span class="field-help">{t.currentSetting}: {formatDuration(policy.ttlSeconds, t)}</span>
-          </label>
-          <label>
-            {t.role}
-            <input
-              name="role"
-              maxLength={80}
-              value={role}
-              onInput={(event: Event) => setRole((event.target as HTMLInputElement | null)?.value ?? '')}
-              placeholder="viewer"
-            />
           </label>
           <label>
             {t.label}
@@ -848,7 +836,7 @@ function issuePolicyInputFromForm(form: HTMLFormElement, policy: IssuePolicy): I
   const maxUses = formDataString(data, 'maxUses')
   return {
     ttl: formDataString(data, 'ttl') ?? String(policy.ttlSeconds),
-    role: formDataString(data, 'role') ?? policy.role,
+    role: policy.role,
     label: label ?? null,
     maxUses: maxUses ?? null,
   }
