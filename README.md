@@ -99,7 +99,7 @@ Object or D1 schema.
 - Issuing or switching to a `roomId` already used by another `linkId` returns
   `409`.
 - Public renderers receive `link.roomId`, `link.linkId`, `link.tokenHash`,
-  `link.label`, `link.role`, and `link.expiresAt` after token validation.
+  `link.label`, and `link.expiresAt` after token validation.
 
 Calling `/admin/rooms/:roomId` again for the same `roomId` updates that room.
 Issuing a link reads the current room state and records it for archive review.
@@ -347,7 +347,7 @@ Response:
 curl -sS -X POST "$SHORT_LINK_ADMIN_BASE_URL/admin/links/summer-event/tokens" \
   -H "Authorization: Bearer $SHORT_LINK_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"ttl":"1h","roomId":"room-a","label":"staff","role":"viewer","maxUses":10}'
+  -d '{"ttl":"1h","roomId":"room-a","label":"staff","maxUses":10}'
 ```
 
 Request fields:
@@ -357,7 +357,6 @@ Request fields:
 | `ttl` | no | Defaults to `1h`; accepts duration strings such as `15m`, `1h`, `1d`, or a positive integer number of seconds |
 | `roomId` | no | Sets the link's current room when present; use a stable, application-owned ID and do not reuse it for another survey/event |
 | `label` | no | Token-scoped operator memo; not used for authorization and exposed to public renderers as `shortLink.label` |
-| `role` | no | Defaults to `viewer` and is exposed in `shortLink.role` |
 | `maxUses` | no | Positive integer as a number or string; omitted means unlimited until expiry/revoke |
 
 Response:
@@ -462,7 +461,6 @@ Response:
     {
       "tokenHash": "<sha-256-hash>",
       "label": "staff",
-      "role": "viewer",
       "roomId": "room-a",
       "createdAt": "2026-06-28T11:00:00.000Z",
       "expiresAt": "2026-06-28T12:00:00.000Z",
@@ -501,7 +499,6 @@ Response:
     {
       "tokenHash": "<sha-256-hash>",
       "label": "staff",
-      "role": "viewer",
       "roomId": "room-a",
       "createdAt": "2026-06-28T11:00:00.000Z",
       "expiresAt": "2026-06-28T12:00:00.000Z",
@@ -525,7 +522,7 @@ curl -sS "$SHORT_LINK_ADMIN_BASE_URL/admin/links/summer-event/issue-policy" \
 Response:
 
 ```json
-{"ttlSeconds":3600,"label":"staff","role":"viewer","maxUses":10}
+{"ttlSeconds":3600,"label":"staff","maxUses":10}
 ```
 
 The policy is the reusable issuing configuration for a link. `roomId` is not
@@ -537,7 +534,7 @@ stored in the policy; reissue uses the link's current room.
 curl -sS -X PUT "$SHORT_LINK_ADMIN_BASE_URL/admin/links/summer-event/issue-policy" \
   -H "Authorization: Bearer $SHORT_LINK_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"ttl":"15m","label":"reissued","role":"viewer","maxUses":3}'
+  -d '{"ttl":"15m","label":"reissued","maxUses":3}'
 ```
 
 Use `null` for `label` or `maxUses` to clear them.
@@ -745,7 +742,7 @@ examples above for status and revoke until CLI wrappers are added.
 1. Admin issues a token for a link with a TTL and optional `maxUses`.
 2. `PublicLink` generates a raw token, stores only its SHA-256 hash, and returns
    the raw token once.
-3. `PublicLink` stores the link issue policy: TTL, role, label, and `maxUses`.
+3. `PublicLink` stores the link issue policy: TTL, label, and `maxUses`.
 4. If `roomId` is included, the link's current room is updated at issue time.
    Use a stable, non-reused `roomId` for archive-safe application data.
 5. `Registry` records the link as a server-side list candidate.

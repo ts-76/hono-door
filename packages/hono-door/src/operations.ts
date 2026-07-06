@@ -121,10 +121,8 @@ async function issueLink<T extends HonoEnv>(
 
   await recordRoomSnapshot(config, c, roomId)
 
-  const role = input.role ?? 'viewer'
   const tokenInput: IssueTokenInput = {
     ttlSeconds: ttlSeconds.value,
-    role,
   }
   tokenInput.roomId = roomId
   if (input.label !== undefined) tokenInput.label = input.label
@@ -134,7 +132,6 @@ async function issueLink<T extends HonoEnv>(
   const registryInput = {
     linkId: input.linkId,
     tokenHash: result.tokenHash,
-    role,
     roomId: result.roomId,
     createdAt: result.createdAt,
     expiresAt: result.expiresAt,
@@ -328,7 +325,6 @@ async function reissueLink<T extends HonoEnv>(
   const registryInput = {
     linkId,
     tokenHash: result.tokenHash,
-    role: policy.role,
     roomId: result.roomId,
     createdAt: result.createdAt,
     expiresAt: result.expiresAt,
@@ -469,7 +465,6 @@ function parseIssuePolicyInput(
 
   const policy: PublicLinkIssuePolicy = {
     ttlSeconds: ttlSeconds.value,
-    role: input.role ?? current.role,
   }
   const label = input.label === undefined ? current.label : input.label
   if (label) policy.label = label

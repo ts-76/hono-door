@@ -47,7 +47,6 @@ function archiveRoomToPublicLinkContext(
     linkId,
     tokenHash: 'archive-preview',
     label: 'archive-preview',
-    role: 'viewer',
     expiresAt: Number.isNaN(updatedAt) ? Date.now() : updatedAt,
     roomId: room.roomId,
     room: {

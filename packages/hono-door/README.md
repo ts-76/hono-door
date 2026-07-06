@@ -38,7 +38,7 @@ row per `room_id`. Issuing or switching another `linkId` to an already-used
 it as the foreign key in your own DO or D1 data.
 
 Public renderers receive `link.roomId`, `link.linkId`, `link.tokenHash`,
-`link.label`, `link.role`, and `link.expiresAt` after token validation, so they
+`link.label`, and `link.expiresAt` after token validation, so they
 can load application data by `roomId`. Manual archive, revoke, and expiry do
 not change `roomId`; reissue creates a new token hash while keeping the link's
 current room.

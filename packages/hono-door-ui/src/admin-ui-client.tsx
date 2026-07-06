@@ -49,7 +49,6 @@ type LinkSummary = {
 type TokenSummary = {
   tokenHash: string
   label?: string
-  role: string
   roomId: string
   createdAt: string
   expiresAt: string
@@ -83,7 +82,6 @@ type ArchiveLinkDetail = ArchiveLinkSummary & {
 
 type IssuePolicy = {
   ttlSeconds: number
-  role: string
   label?: string
   maxUses?: number
 }
@@ -662,7 +660,6 @@ function LinkListApp({
 
 type IssuePolicyInput = {
   ttl?: string
-  role?: string
   label?: string | null
   maxUses?: string | null
 }
@@ -836,7 +833,6 @@ function issuePolicyInputFromForm(form: HTMLFormElement, policy: IssuePolicy): I
   const maxUses = formDataString(data, 'maxUses')
   return {
     ttl: formDataString(data, 'ttl') ?? String(policy.ttlSeconds),
-    role: policy.role,
     label: label ?? null,
     maxUses: maxUses ?? null,
   }

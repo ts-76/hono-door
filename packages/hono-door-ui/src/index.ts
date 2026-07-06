@@ -112,7 +112,6 @@ const adminUiLoginSchema = z.object({
 const adminUiIssuePolicySchema = z.object({
   ttl: z.union([z.string().min(1), z.number().int().positive()]).optional(),
   label: z.string().min(1).nullable().optional(),
-  role: z.string().min(1).optional(),
   maxUses: z.union([z.string().min(1), z.number().int().positive()]).nullable().optional(),
 })
 

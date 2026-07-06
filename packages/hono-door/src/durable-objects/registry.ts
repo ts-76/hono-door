@@ -40,7 +40,6 @@ export type RegistryRecordTokenIssuedInput = {
   linkId: string
   tokenHash: string
   label?: string | undefined
-  role: string
   roomId: string
   createdAt: number
   expiresAt: number
@@ -106,7 +105,6 @@ const REGISTRY_MIGRATIONS: SqlMigration[] = [
           token_hash TEXT PRIMARY KEY,
           link_id TEXT NOT NULL,
           label TEXT,
-          role TEXT NOT NULL,
           room_id TEXT NOT NULL,
           created_at INTEGER NOT NULL,
           expires_at INTEGER NOT NULL,
@@ -187,17 +185,15 @@ export class Registry extends DurableObject<unknown> {
             token_hash,
             link_id,
             label,
-            role,
             room_id,
             created_at,
             expires_at,
             max_uses,
             use_count
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 0)
           ON CONFLICT(token_hash) DO UPDATE SET
             link_id = excluded.link_id,
             label = excluded.label,
-            role = excluded.role,
             room_id = excluded.room_id,
             created_at = excluded.created_at,
             expires_at = excluded.expires_at,
@@ -208,7 +204,6 @@ export class Registry extends DurableObject<unknown> {
         input.tokenHash,
         input.linkId,
         input.label ?? null,
-        input.role,
         input.roomId,
         input.createdAt,
         input.expiresAt,

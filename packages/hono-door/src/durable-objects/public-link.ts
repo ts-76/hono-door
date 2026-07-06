@@ -7,26 +7,22 @@ const CURRENT_ROOM_KEY = 'current_room_id'
 const ISSUE_POLICY_KEY = 'issue_policy'
 const DEFAULT_ROOM_ID = 'default'
 const DEFAULT_TTL_SECONDS = 60 * 60
-const DEFAULT_ROLE = 'viewer'
 
 export type IssueTokenInput = {
   ttlSeconds: number
   label?: string
-  role?: string
   roomId?: string
   maxUses?: number
 }
 
 export type PublicLinkIssuePolicy = {
   ttlSeconds: number
-  role: string
   label?: string | undefined
   maxUses?: number | undefined
 }
 
 type PublicLinkIssuePolicyLike = {
   ttlSeconds: number
-  role?: string | undefined
   label?: string | undefined
   maxUses?: number | undefined
 }
@@ -44,7 +40,6 @@ export type PublicLinkAccess =
       ok: true
       tokenHash: string
       label?: string | undefined
-      role: string
       expiresAt: number
       roomId: string
     }
@@ -61,7 +56,6 @@ export type VerifyTokenOptions = {
 export type PublicLinkTokenSummary = {
   tokenHash: string
   label?: string | undefined
-  role: string
   roomId: string
   createdAt: string
   expiresAt: string
@@ -85,7 +79,6 @@ export type PublicLinkStatus = {
 type TokenRow = {
   token_hash: string
   label: string | null
-  role: string
   expires_at: number
   revoked_at: number | null
   max_uses: number | null
@@ -95,7 +88,6 @@ type TokenRow = {
 type TokenSummaryRow = {
   token_hash: string
   label: string | null
-  role: string
   created_at: number
   expires_at: number
   revoked_at: number | null
@@ -129,7 +121,6 @@ const PUBLIC_LINK_MIGRATIONS: SqlMigration[] = [
         CREATE TABLE IF NOT EXISTS tokens (
           token_hash TEXT PRIMARY KEY,
           label TEXT,
-          role TEXT NOT NULL DEFAULT 'viewer',
           created_at INTEGER NOT NULL,
           expires_at INTEGER NOT NULL,
           revoked_at INTEGER,
@@ -183,16 +174,14 @@ export class PublicLink extends DurableObject<unknown> {
         INSERT INTO tokens (
           token_hash,
           label,
-          role,
           created_at,
           expires_at,
           ttl_seconds,
           max_uses
-        ) VALUES (?, ?, ?, ?, ?, ?, ?);
+        ) VALUES (?, ?, ?, ?, ?, ?);
       `,
       tokenHash,
       policy.label ?? null,
-      policy.role,
       now,
       expiresAt,
       policy.ttlSeconds,
@@ -214,7 +203,7 @@ export class PublicLink extends DurableObject<unknown> {
     const row = this.ctx.storage.sql
       .exec<TokenRow>(
         `
-          SELECT token_hash, label, role, expires_at, revoked_at, max_uses, use_count
+          SELECT token_hash, label, expires_at, revoked_at, max_uses, use_count
           FROM tokens
           WHERE token_hash = ?;
         `,
@@ -254,7 +243,6 @@ export class PublicLink extends DurableObject<unknown> {
       ok: true,
       tokenHash,
       label: row.label ?? undefined,
-      role: row.role,
       expiresAt: row.expires_at,
       roomId: this.getCurrentRoomId(),
     }
@@ -321,7 +309,6 @@ export class PublicLink extends DurableObject<unknown> {
     const { revokedTokenCount } = this.revokeActiveTokens()
     const input: IssueTokenInput = {
       ttlSeconds: policy.ttlSeconds,
-      role: policy.role,
       roomId: this.getCurrentRoomId(),
     }
     if (policy.label !== undefined) input.label = policy.label
@@ -394,7 +381,6 @@ export class PublicLink extends DurableObject<unknown> {
           SELECT
             token_hash,
             label,
-            role,
             created_at,
             expires_at,
             revoked_at,
@@ -416,7 +402,6 @@ export class PublicLink extends DurableObject<unknown> {
       tokens: rows.map((row) => ({
         tokenHash: row.token_hash,
         label: row.label ?? undefined,
-        role: row.role,
         roomId,
         createdAt: new Date(row.created_at).toISOString(),
         expiresAt: new Date(row.expires_at).toISOString(),
@@ -440,7 +425,6 @@ export class PublicLink extends DurableObject<unknown> {
           SELECT
             token_hash,
             label,
-            role,
             created_at,
             expires_at,
             revoked_at,
@@ -457,7 +441,6 @@ export class PublicLink extends DurableObject<unknown> {
       tokens: rows.map((row) => ({
         tokenHash: row.token_hash,
         label: row.label ?? undefined,
-        role: row.role,
         roomId,
         createdAt: new Date(row.created_at).toISOString(),
         expiresAt: new Date(row.expires_at).toISOString(),
@@ -538,14 +521,13 @@ export class PublicLink extends DurableObject<unknown> {
     const row = this.ctx.storage.sql
       .exec<{
         label: string | null
-        role: string
         created_at: number
         expires_at: number
         ttl_seconds: number | null
         max_uses: number | null
       }>(
         `
-          SELECT label, role, created_at, expires_at, ttl_seconds, max_uses
+          SELECT label, created_at, expires_at, ttl_seconds, max_uses
           FROM tokens
           WHERE
             revoked_at IS NULL
@@ -561,7 +543,6 @@ export class PublicLink extends DurableObject<unknown> {
     if (!row) {
       return {
         ttlSeconds: DEFAULT_TTL_SECONDS,
-        role: DEFAULT_ROLE,
       }
     }
 
@@ -569,7 +550,6 @@ export class PublicLink extends DurableObject<unknown> {
       ttlSeconds:
         row.ttl_seconds ??
         Math.max(1, Math.round((row.expires_at - row.created_at) / 1000)),
-      role: row.role,
     }
     if (row.label !== null) input.label = row.label
     if (row.max_uses !== null) input.maxUses = row.max_uses
@@ -616,7 +596,6 @@ function tokenState(
 function normalizeIssuePolicy(input: PublicLinkIssuePolicyLike): PublicLinkIssuePolicy {
   const policy: PublicLinkIssuePolicy = {
     ttlSeconds: input.ttlSeconds,
-    role: input.role || DEFAULT_ROLE,
   }
   if (input.label !== undefined) policy.label = input.label
   if (input.maxUses !== undefined) policy.maxUses = input.maxUses
@@ -632,7 +611,6 @@ function parseIssuePolicy(value: string): PublicLinkIssuePolicy | undefined {
     }
     const policy: PublicLinkIssuePolicyLike = {
       ttlSeconds,
-      role: typeof input.role === 'string' && input.role ? input.role : DEFAULT_ROLE,
     }
     if (typeof input.label === 'string' && input.label) policy.label = input.label
     const maxUses = input.maxUses

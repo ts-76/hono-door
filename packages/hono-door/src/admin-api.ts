@@ -68,7 +68,6 @@ type CreateAdminApiOptions<T extends HonoEnv> = {
 const issueTokenSchema = z.object({
   ttl: z.union([z.string().min(1), z.number().int().positive()]).default('1h'),
   label: z.string().min(1).optional(),
-  role: z.string().min(1).default('viewer'),
   roomId: z.string().min(1).optional(),
   maxUses: z.union([z.number().int().positive(), z.string().min(1)]).optional(),
 })
@@ -76,7 +75,6 @@ const issueTokenSchema = z.object({
 const issuePolicySchema = z.object({
   ttl: z.union([z.string().min(1), z.number().int().positive()]).optional(),
   label: z.string().min(1).nullable().optional(),
-  role: z.string().min(1).optional(),
   maxUses: z.union([z.number().int().positive(), z.string().min(1)]).nullable().optional(),
 })
 
@@ -186,7 +184,6 @@ export function createAdminApi<T extends HonoEnv>({
     const result = await issueLink(c, {
       linkId: c.req.param('linkId'),
       ttl: body.value.ttl,
-      role: body.value.role,
       roomId: body.value.roomId,
       label: body.value.label,
       maxUses: body.value.maxUses,
