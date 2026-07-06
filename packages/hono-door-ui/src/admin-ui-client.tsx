@@ -374,12 +374,12 @@ function LinkListApp({
     }
 
     const body = (await response.json()) as { links?: LinkSummary[] }
-    setLinks(body.links ?? [])
+    const nextLinks = body.links ?? []
+    setLinks(nextLinks)
     setStatus('loaded')
-
     if (clearDetails) {
-      for (const linkId of openLinkIds) {
-        void loadDetails(linkId, { force: true })
+      for (const link of nextLinks) {
+        void loadDetails(link.linkId, { force: true })
       }
     }
   }
@@ -599,58 +599,62 @@ function LinkListApp({
       ) : null}
       {links.length > 0 ? (
         <div class="link-list">
-          {links.map((link) => (
-            <article class="link-item" key={link.linkId}>
-              <div class="link-item-main">
-                <h3>{link.linkId || 'link'}</h3>
-                <dl class="compact-meta">
-                  <div>
-                    <dt>{t.contentId}</dt>
-                    <dd>{link.currentRoomId}</dd>
+          {links.map((link) => {
+            const detailOpen = openLinkIds.includes(link.linkId)
+            return (
+              <article class="link-item" key={link.linkId}>
+                <div class="active-link-row">
+                  <div class="link-item-main">
+                    <h3>{link.linkId || 'link'}</h3>
+                    <dl class="compact-meta">
+                      <div>
+                        <dt>{t.contentId}</dt>
+                        <dd>{link.currentRoomId}</dd>
+                      </div>
+                      <div>
+                        <dt>{t.activeTokens}</dt>
+                        <dd>{link.activeTokenCount}</dd>
+                      </div>
+                      <div>
+                        <dt>{t.latestExpiry}</dt>
+                        <dd>{formatDateTime(link.latestExpiresAt, locale)}</dd>
+                      </div>
+                    </dl>
+                    <ActiveTokenHashes t={t} state={details[link.linkId]} />
                   </div>
-                  <div>
-                    <dt>{t.activeTokens}</dt>
-                    <dd>{link.activeTokenCount}</dd>
-                  </div>
-                  <div>
-                    <dt>{t.latestExpiry}</dt>
-                    <dd>{formatDateTime(link.latestExpiresAt, locale)}</dd>
-                  </div>
-                </dl>
-              </div>
-              <details
-                class="link-detail"
-                onToggle={(event: Event) => {
-                  const opened = Boolean((event.target as HTMLDetailsElement | null)?.open)
-                  setOpenLinkIds((current) =>
-                    opened
-                      ? current.includes(link.linkId)
-                        ? current
-                        : [...current, link.linkId]
-                      : current.filter((openLinkId) => openLinkId !== link.linkId),
-                  )
-                  if (opened) void loadDetails(link.linkId)
-                }}
-              >
-                <summary>{t.details}</summary>
-                <div class="link-detail-body">
-                  <p class="hint">
-                    {t.tokenNotStoredHint}
-                  </p>
-                <LinkDetails
-                  state={details[link.linkId]}
-                  t={t}
-                  locale={locale}
-                  onSavePolicy={(input) => void saveIssuePolicy(link.linkId, input)}
-                  onReissue={() => void reissueLink(link.linkId)}
-                  onArchive={() => void archiveLink(link.linkId)}
-                  reissuing={pendingReissueLinkId === link.linkId}
-                  archiving={pendingArchiveLinkId === link.linkId}
-                />
+                  <ActiveRowActions
+                    t={t}
+                    state={details[link.linkId]}
+                    detailsOpen={detailOpen}
+                    onToggleDetails={() => {
+                      setOpenLinkIds((current) =>
+                        current.includes(link.linkId)
+                          ? current.filter((openLinkId) => openLinkId !== link.linkId)
+                          : [...current, link.linkId],
+                      )
+                      void loadDetails(link.linkId)
+                    }}
+                    onArchive={() => void archiveLink(link.linkId)}
+                    archiving={pendingArchiveLinkId === link.linkId}
+                    disabled={pendingArchiveLinkId !== undefined || pendingReissueLinkId !== undefined}
+                  />
                 </div>
-              </details>
-            </article>
-          ))}
+                {detailOpen ? (
+                <div class="link-detail-body">
+                  <LinkDetails
+                    state={details[link.linkId]}
+                    t={t}
+                    locale={locale}
+                    onSavePolicy={(input) => void saveIssuePolicy(link.linkId, input)}
+                    onReissue={() => void reissueLink(link.linkId)}
+                    reissuing={pendingReissueLinkId === link.linkId}
+                    archiving={pendingArchiveLinkId === link.linkId}
+                  />
+                </div>
+                ) : null}
+              </article>
+            )
+          })}
         </div>
       ) : null}
     </>
@@ -664,13 +668,66 @@ type IssuePolicyInput = {
   maxUses?: string | null
 }
 
+function ActiveTokenHashes({ t, state }: { t: AdminUiText; state: LinkDetailsState | undefined }) {
+  if (!state || state.status === 'loading') {
+    return <p class="empty-state active-token-loading">{t.loadingDetails}</p>
+  }
+
+  if (state.status === 'error') {
+    return <p class="alert" role="alert">{state.error}</p>
+  }
+
+  if (state.tokens.length === 0) {
+    return <p class="empty-state">{t.noActiveTokens}</p>
+  }
+
+  return (
+    <dl class="active-token-hashes">
+      {state.tokens.map((token) => (
+        <div key={token.tokenHash}>
+          <dt>{t.tokenHash}</dt>
+          <dd>{token.tokenHash}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
+function ActiveRowActions({
+  t,
+  state,
+  detailsOpen,
+  onToggleDetails,
+  onArchive,
+  archiving,
+  disabled,
+}: {
+  t: AdminUiText
+  state: LinkDetailsState | undefined
+  detailsOpen: boolean
+  onToggleDetails(): void
+  onArchive(): void
+  archiving: boolean
+  disabled: boolean
+}) {
+  return (
+    <aside class="active-row-actions">
+      <button type="button" class="secondary" onClick={onToggleDetails}>
+        {detailsOpen ? t.closeDetails : t.details}
+      </button>
+      <button type="button" class="danger" disabled={disabled || archiving} onClick={onArchive}>
+        {archiving ? t.archiving : t.archiveManual}
+      </button>
+    </aside>
+  )
+}
+
 function LinkDetails({
   state,
   t,
   locale,
   onSavePolicy,
   onReissue,
-  onArchive,
   reissuing,
   archiving,
 }: {
@@ -679,7 +736,6 @@ function LinkDetails({
   locale: AdminUiLocale
   onSavePolicy(input: IssuePolicyInput): void
   onReissue(): void
-  onArchive(): void
   reissuing: boolean
   archiving: boolean
 }) {
@@ -696,16 +752,11 @@ function LinkDetails({
       {state.error ? <p class="alert" role="alert">{state.error}</p> : null}
       {state.message ? <p class="hint status-message" role="status">{state.message}</p> : null}
       {state.reissueResult ? <ReissuedResult t={t} result={state.reissueResult} locale={locale} /> : null}
-      <section class="detail-section">
-        <h3>{t.activeTokenSection}</h3>
-        <TokenList t={t} tokens={state.tokens} locale={locale} />
-      </section>
       <IssuePolicyForm
         t={t}
         policy={state.policy}
         onSave={onSavePolicy}
         onReissue={onReissue}
-        onArchive={onArchive}
         reissuing={reissuing}
         archiving={archiving}
       />
@@ -718,7 +769,6 @@ function IssuePolicyForm({
   t,
   onSave,
   onReissue,
-  onArchive,
   reissuing,
   archiving,
 }: {
@@ -726,7 +776,6 @@ function IssuePolicyForm({
   t: AdminUiText
   onSave(input: IssuePolicyInput): void
   onReissue(): void
-  onArchive(): void
   reissuing: boolean
   archiving: boolean
 }) {
@@ -786,15 +835,6 @@ function IssuePolicyForm({
           </button>
         </div>
       </section>
-      <section class="detail-section danger-zone">
-        <h3>{t.dangerZone}</h3>
-        <p class="hint">{t.dangerArchiveHint}</p>
-        <div class="step-controls">
-          <button type="button" class="danger" disabled={reissuing || archiving} onClick={onArchive}>
-            {archiving ? t.archiving : t.archiveManual}
-          </button>
-        </div>
-      </section>
     </form>
   )
 }
@@ -816,50 +856,6 @@ function ReissuedResult({ t, result, locale }: { t: AdminUiText; result: AdminUi
         <QrPanel t={t} qrSvg={result.qrSvg} />
       </div>
     </section>
-  )
-}
-
-function TokenList({ t, tokens, locale }: { t: AdminUiText; tokens: TokenSummary[]; locale: AdminUiLocale }) {
-  if (tokens.length === 0) {
-    return <p class="empty-state">{t.noActiveTokens}</p>
-  }
-
-  return (
-    <div class="token-list">
-      {tokens.map((token) => (
-        <article class="token-item" key={token.tokenHash}>
-          <dl>
-            <div>
-              <dt>{t.label}</dt>
-              <dd>{token.label ?? t.none}</dd>
-            </div>
-            <div>
-              <dt>{t.role}</dt>
-              <dd>{token.role}</dd>
-            </div>
-            <div>
-              <dt>{t.contentId}</dt>
-              <dd>{token.roomId}</dd>
-            </div>
-            <div>
-              <dt>{t.expires}</dt>
-              <dd>{formatDateTime(token.expiresAt, locale)}</dd>
-            </div>
-            <div>
-              <dt>{t.useCount}</dt>
-              <dd>
-                {token.useCount}
-                {token.maxUses ? ` / ${token.maxUses}` : ''}
-              </dd>
-            </div>
-            <div>
-              <dt>{t.tokenHash}</dt>
-              <dd>{token.tokenHash}</dd>
-            </div>
-          </dl>
-        </article>
-      ))}
-    </div>
   )
 }
 
@@ -909,8 +905,12 @@ function ArchiveApp({
     }
 
     const body = (await response.json()) as { links?: ArchiveLinkSummary[] }
-    setLinks(body.links ?? [])
+    const nextLinks = body.links ?? []
+    setLinks(nextLinks)
     setStatus('loaded')
+    for (const link of nextLinks) {
+      void loadDetail(link.linkId, { force: true })
+    }
   }
 
   const loadDetail = async (linkId: string, options: { force?: boolean } = {}) => {
@@ -1022,44 +1022,34 @@ function ArchiveApp({
         <div class="link-list">
           {links.map((link) => (
             <article class="link-item" key={link.linkId}>
-              <div class="link-item-main">
-                <h3>{link.linkId}</h3>
-                <dl class="compact-meta">
-                  <div>
-                    <dt>{t.contentId}</dt>
-                    <dd>{link.currentRoomId}</dd>
-                  </div>
-                  <div>
-                    <dt>{t.tokenCount}</dt>
-                    <dd>{link.tokenCount}</dd>
-                  </div>
-                  <div>
-                    <dt>{t.latestExpiry}</dt>
-                    <dd>{link.latestExpiresAt ? formatDateTime(link.latestExpiresAt, locale) : t.none}</dd>
-                  </div>
-                </dl>
-                <RoomPreview t={t} linkId={link.linkId} room={link.latestRoom} />
-              </div>
-              <details
-                class="link-detail"
-                onToggle={(event: Event) => {
-                  const opened = Boolean((event.target as HTMLDetailsElement | null)?.open)
-                  if (opened) void loadDetail(link.linkId)
-                }}
-              >
-                <summary>{t.viewArchiveDetails}</summary>
-                <div class="link-detail-body">
-                  <ArchiveDetails
-                    t={t}
-                    locale={locale}
-                    linkId={link.linkId}
-                    state={details[link.linkId]}
-                    onDelete={() => void deleteArchiveLink(link.linkId)}
-                    deleting={pendingDeleteLinkId === link.linkId}
-                    deleteDisabled={pendingDeleteLinkId !== undefined}
-                  />
+              <div class="archive-link-row">
+                <div class="link-item-main">
+                  <h3>{link.linkId}</h3>
+                  <dl class="compact-meta">
+                    <div>
+                      <dt>{t.contentId}</dt>
+                      <dd>{link.currentRoomId}</dd>
+                    </div>
+                    <div>
+                      <dt>{t.tokenCount}</dt>
+                      <dd>{link.tokenCount}</dd>
+                    </div>
+                    <div>
+                      <dt>{t.latestExpiry}</dt>
+                      <dd>{link.latestExpiresAt ? formatDateTime(link.latestExpiresAt, locale) : t.none}</dd>
+                    </div>
+                  </dl>
+                  <ArchiveTokenHashes t={t} state={details[link.linkId]} />
                 </div>
-              </details>
+                <ArchiveRowActions
+                  t={t}
+                  linkId={link.linkId}
+                  room={link.latestRoom}
+                  onDelete={() => void deleteArchiveLink(link.linkId)}
+                  deleting={pendingDeleteLinkId === link.linkId}
+                  deleteDisabled={pendingDeleteLinkId !== undefined}
+                />
+              </div>
             </article>
           ))}
         </div>
@@ -1068,168 +1058,75 @@ function ArchiveApp({
   )
 }
 
-function ArchiveDetails({
+function ArchiveTokenHashes({
   t,
-  locale,
-  linkId,
   state,
-  onDelete,
-  deleting,
-  deleteDisabled,
 }: {
   t: AdminUiText
-  locale: AdminUiLocale
-  linkId: string
   state: ArchiveDetailState | undefined
-  onDelete: () => void
-  deleting: boolean
-  deleteDisabled: boolean
 }) {
   if (!state || state.status === 'loading') {
-    return <p class="empty-state">{t.loadingDetails}</p>
+    return <p class="empty-state archive-token-loading">{t.loadingDetails}</p>
   }
 
   if (state.status === 'error') {
     return <p class="alert" role="alert">{state.error}</p>
   }
 
+  if (state.detail.tokens.length === 0) {
+    return <p class="empty-state">{t.noTokenHistory}</p>
+  }
+
   return (
-    <div class="link-details-content">
-      <div class="archive-detail-grid">
-        <section class="archive-room">
-          {state.detail.rooms.length === 0 ? (
-            <p class="empty-state">{t.noSavedContent}</p>
-          ) : (
-            state.detail.rooms.map((room) => <RoomCard t={t} locale={locale} linkId={linkId} room={room} key={room.roomId} />)
-          )}
-        </section>
-        <ArchiveManagementPanel
-          t={t}
-          locale={locale}
-          tokens={state.detail.tokens}
-          onDelete={onDelete}
-          deleting={deleting}
-          deleteDisabled={deleteDisabled}
-        />
-      </div>
-    </div>
+    <dl class="archive-token-hashes">
+      {state.detail.tokens.map((token) => (
+        <div key={token.tokenHash}>
+          <dt>{t.tokenHash}</dt>
+          <dd>{token.tokenHash}</dd>
+        </div>
+      ))}
+    </dl>
   )
 }
 
-function RoomPreview({ t, linkId, room }: { t: AdminUiText; linkId: string; room?: RoomSnapshot | undefined }) {
-  if (!room) return <p class="hint archive-preview-unavailable">{t.previewUnavailable}</p>
-  const previewPath = archivePreviewPath(linkId, room.roomId)
-
-  return (
-    <div class="archive-preview-summary">
-      <p class="hint">
-        {room.title ? `${room.title} / ` : ''}
-        {room.body ? truncate(room.body, 120) : t.noBody}
-      </p>
-      <a class="inline-link" href={previewPath} target="_blank" rel="noreferrer">
-        {t.openAdminPreview}
-      </a>
-    </div>
-  )
-}
-
-function RoomCard({ t, locale, linkId, room }: { t: AdminUiText; locale: AdminUiLocale; linkId: string; room: RoomSnapshot }) {
-  const previewPath = archivePreviewPath(linkId, room.roomId)
-
-  return (
-    <article class="archive-room-item">
-      <div class="archive-room-copy">
-        <h4>{room.title ?? room.roomId}</h4>
-        <p class="hint">{room.body ? truncate(room.body, 180) : t.noBody}</p>
-        <dl class="inline-meta">
-          <div>
-            <dt>{t.contentId}</dt>
-            <dd>{room.roomId}</dd>
-          </div>
-          <div>
-            <dt>{t.updatedAt}</dt>
-            <dd>{formatDateTime(room.updatedAt, locale)}</dd>
-          </div>
-        </dl>
-      </div>
-      <a class="inline-link" href={previewPath} target="_blank" rel="noreferrer">
-        {t.openAdminPreview}
-      </a>
-    </article>
-  )
-}
-
-function archivePreviewPath(linkId: string, roomId: string) {
-  return `/admin/ui/archive/${encodeURIComponent(linkId)}/rooms/${encodeURIComponent(roomId)}/preview`
-}
-
-function ArchiveManagementPanel({
+function ArchiveRowActions({
   t,
-  locale,
-  tokens,
+  linkId,
+  room,
   onDelete,
   deleting,
   deleteDisabled,
 }: {
   t: AdminUiText
-  locale: AdminUiLocale
-  tokens: TokenSummary[]
+  linkId: string
+  room?: RoomSnapshot | undefined
   onDelete: () => void
   deleting: boolean
   deleteDisabled: boolean
 }) {
   return (
-    <aside class="archive-management">
+    <aside class="archive-actions">
+      <PreviewLink t={t} linkId={linkId} room={room} />
       <button type="button" class="danger archive-delete-button" disabled={deleteDisabled} onClick={onDelete}>
         {deleting ? t.deletingArchive : t.deleteArchive}
       </button>
-      {tokens.length === 0 ? (
-        <p class="empty-state">{t.noTokenHistory}</p>
-      ) : (
-        <div class="archive-token-table">
-          {tokens.map((token) => (
-            <article class="archive-token-row" key={token.tokenHash}>
-              <div class="archive-token-main">
-                <span>{formatTokenState(token.state, t)}</span>
-                <span>{token.label ?? token.role}</span>
-                <span>{formatDateTime(token.expiresAt, locale)}</span>
-              </div>
-              <dl class="inline-meta archive-token-meta">
-                <div>
-                  <dt>{t.useCount}</dt>
-                  <dd>
-                    {token.useCount}
-                    {token.maxUses ? ` / ${token.maxUses}` : ''}
-                  </dd>
-                </div>
-                <div>
-                  <dt>{t.revokedAt}</dt>
-                  <dd>{token.revokedAt ? formatDateTime(token.revokedAt, locale) : t.none}</dd>
-                </div>
-                <div>
-                  <dt>{t.tokenHash}</dt>
-                  <dd>{token.tokenHash}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
-        </div>
-      )}
     </aside>
   )
 }
 
-function formatTokenState(state: TokenSummary['state'], t: AdminUiText): string {
-  if (state === 'active') return t.stateActive
-  if (state === 'expired') return t.stateExpired
-  if (state === 'revoked') return t.stateRevoked
-  if (state === 'max_uses_reached') return t.stateMaxUsesReached
-  return t.none
+function PreviewLink({ t, linkId, room }: { t: AdminUiText; linkId: string; room?: RoomSnapshot | undefined }) {
+  if (!room) return <p class="hint archive-preview-unavailable">{t.previewUnavailable}</p>
+  const previewPath = archivePreviewPath(linkId, room.roomId)
+
+  return (
+    <a class="inline-link archive-preview-link" href={previewPath} target="_blank" rel="noreferrer">
+      {t.openAdminPreview}
+    </a>
+  )
 }
 
-function truncate(value: string, maxLength: number): string {
-  if (value.length <= maxLength) return value
-  return `${value.slice(0, maxLength)}...`
+function archivePreviewPath(linkId: string, roomId: string) {
+  return `/admin/ui/archive/${encodeURIComponent(linkId)}/rooms/${encodeURIComponent(roomId)}/preview`
 }
 
 function formDataString(data: FormData, name: string): string | undefined {

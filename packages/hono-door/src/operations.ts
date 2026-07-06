@@ -45,6 +45,9 @@ export function createDoorOperations<T extends HonoEnv>(config: DoorConfig<T>) {
     listLinkTokens(c: Context<T>, linkId: string) {
       return listLinkTokens(config, c, linkId)
     },
+    revokeLinkToken(c: Context<T>, linkId: string, tokenHash: string) {
+      return revokeLinkToken(config, c, linkId, tokenHash)
+    },
     getIssuePolicy(c: Context<T>, linkId: string) {
       return getIssuePolicy(config, c, linkId)
     },
@@ -187,6 +190,26 @@ async function listLinkTokens<T extends HonoEnv>(
 ): Promise<ShortLinkOperationResult<{ tokens: PublicLinkTokenSummary[] }>> {
   const link = resolve(config.publicLinks, c).getByName(linkId)
   return { ok: true, value: await link.listActiveTokens() }
+}
+
+async function revokeLinkToken<T extends HonoEnv>(
+  config: DoorConfig<T>,
+  c: Context<T>,
+  linkId: string,
+  tokenHash: string,
+): Promise<ShortLinkOperationResult<{ revoked: boolean }>> {
+  const link = resolve(config.publicLinks, c).getByName(linkId)
+  const status = await link.getStatus()
+  if (!status.exists) {
+    return { ok: false, status: 404, error: 'Link not found.' }
+  }
+
+  const result = await link.revokeToken(tokenHash)
+  if (result.revoked) {
+    await resolve(config.registry, c).getByName('default').recordTokenRevoked(linkId, tokenHash)
+  }
+
+  return { ok: true, value: result }
 }
 
 async function listArchivedLinks<T extends HonoEnv>(

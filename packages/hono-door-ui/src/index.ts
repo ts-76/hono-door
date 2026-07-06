@@ -64,6 +64,11 @@ export type AdminUiShortLink<T extends HonoEnv> = {
     c: Context<T>,
     linkId: string,
   ): Promise<ShortLinkOperationResult<{ tokens: PublicLinkTokenSummary[] }>>
+  revokeLinkToken(
+    c: Context<T>,
+    linkId: string,
+    tokenHash: string,
+  ): Promise<ShortLinkOperationResult<{ revoked: boolean }>>
   getIssuePolicy(
     c: Context<T>,
     linkId: string,
@@ -265,6 +270,22 @@ export function createDoorUi<T extends HonoEnv>(
     if (!session.ok) return c.json({ error: session.error }, session.status)
 
     const result = await shortLink.archiveLink(c, c.req.param('linkId'))
+    if (!result.ok) return c.json({ error: result.error }, result.status)
+
+    return c.json(result.value)
+  })
+
+  routes.post('/ui/api/links/:linkId/tokens/:tokenHash/revoke', async (c) => {
+    const session = await readAdminSession(c, shortLink)
+    if (!session.ok) return c.json({ error: session.error }, session.status)
+
+    const linkId = c.req.param('linkId')
+    const tokenHash = c.req.param('tokenHash')
+    if (tokenHash.length < 32) {
+      return c.json({ error: adminUiText[getAdminUiLocale(c)].requiredFieldsInvalid }, 400)
+    }
+
+    const result = await shortLink.revokeLinkToken(c, linkId, tokenHash)
     if (!result.ok) return c.json({ error: result.error }, result.status)
 
     return c.json(result.value)

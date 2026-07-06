@@ -37,6 +37,11 @@ type CreateAdminApiOptions<T extends HonoEnv> = {
     c: Context<T>,
     linkId: string,
   ): Promise<ShortLinkOperationResult<{ tokens: PublicLinkTokenSummary[] }>>
+  revokeLinkToken(
+    c: Context<T>,
+    linkId: string,
+    tokenHash: string,
+  ): Promise<ShortLinkOperationResult<{ revoked: boolean }>>
   getIssuePolicy(
     c: Context<T>,
     linkId: string,
@@ -96,6 +101,7 @@ export function createAdminApi<T extends HonoEnv>({
   listArchivedLinks,
   getArchivedLink,
   listLinkTokens,
+  revokeLinkToken,
   getIssuePolicy,
   updateIssuePolicy,
   reissueLink,
@@ -224,15 +230,12 @@ export function createAdminApi<T extends HonoEnv>({
     const body = await parseJson(c, revokeSchema)
     if (!body.ok) return body.response
 
-    const link = resolve(config.publicLinks, c).getByName(c.req.param('linkId'))
-    const result = await link.revokeToken(body.value.tokenHash)
-    if (result.revoked) {
-      await resolve(config.registry, c)
-        .getByName('default')
-        .recordTokenRevoked(c.req.param('linkId'), body.value.tokenHash)
+    const result = await revokeLinkToken(c, c.req.param('linkId'), body.value.tokenHash)
+    if (!result.ok) {
+      return c.json({ error: result.error }, result.status)
     }
 
-    return c.json(result)
+    return c.json(result.value)
   })
 
   routes.post('/rooms/:roomId', async (c) => {

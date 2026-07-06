@@ -391,7 +391,7 @@ dd {
 .link-item {
   display: grid;
   gap: 0;
-  padding: 0;
+  padding: var(--space-md);
   border: 0;
   border-top: 1px solid var(--color-line);
   border-radius: 0;
@@ -401,7 +401,7 @@ dd {
   border-top: 0;
 }
 .link-item-main {
-  padding: var(--space-md) 0;
+  padding: 0;
 }
 .link-item:hover {
   background: var(--color-row-hover);
@@ -416,6 +416,42 @@ dd {
   min-width: 0;
   display: grid;
   gap: var(--space-sm);
+}
+.active-link-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: start;
+}
+.active-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: end;
+  align-items: center;
+  min-width: 360px;
+  padding-left: 18px;
+  border-left: 1px solid var(--color-line);
+}
+.active-token-hashes {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 8px;
+}
+.active-token-hashes div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--color-line);
+}
+.active-token-hashes dd {
+  overflow-wrap: anywhere;
+}
+.active-token-loading {
+  padding-top: 8px;
 }
 .link-detail {
   display: grid;
@@ -481,24 +517,6 @@ dd {
   grid-template-columns: 1fr;
   gap: 4px;
 }
-.token-list {
-  display: grid;
-  gap: 0;
-  border-top: 1px solid var(--color-line);
-  border-bottom: 1px solid var(--color-line);
-  background: transparent;
-}
-.token-item {
-  min-width: 0;
-  padding: 12px 0;
-  border: 0;
-  border-top: 1px solid var(--color-line);
-  border-radius: 0;
-  background: transparent;
-}
-.token-item:first-child {
-  border-top: 0;
-}
 .policy-form {
   display: grid;
   gap: 14px;
@@ -508,35 +526,11 @@ dd {
   margin: 0;
   font-size: var(--text-section);
 }
-.archive-room {
+.archive-link-row {
   display: grid;
-  gap: var(--space-sm);
-  min-width: 0;
-}
-.archive-detail-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(300px, 380px);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 20px;
   align-items: start;
-}
-.archive-room-item {
-  display: flex;
-  justify-content: space-between;
-  gap: var(--space-md) var(--space-lg);
-  align-items: start;
-  min-width: 0;
-  padding: 4px 0 0;
-}
-.archive-room-copy {
-  display: grid;
-  gap: var(--space-xs);
-  min-width: 0;
-}
-.archive-room-item h4 {
-  margin: 0;
-  color: var(--color-ink);
-  font-size: var(--text-ui);
-  line-height: 1.45;
 }
 .inline-meta {
   display: flex;
@@ -551,46 +545,34 @@ dd {
 .inline-meta dd {
   font-size: var(--text-help);
 }
-.archive-management {
-  display: grid;
-  gap: 10px;
-  min-width: 0;
-  padding: 4px 0 0 18px;
+.archive-actions {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: end;
+  min-width: 220px;
+  padding: 0 0 0 18px;
   border-left: 1px solid var(--color-line);
 }
-.archive-delete-button {
-  justify-self: end;
-  margin-bottom: 2px;
-}
-.archive-token-table {
+.archive-token-hashes {
   display: grid;
-  gap: 0;
+  gap: 8px;
   min-width: 0;
+  padding-top: 8px;
+}
+.archive-token-hashes div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 8px;
   border-top: 1px solid var(--color-line);
 }
-.archive-token-row {
-  display: grid;
-  gap: 4px;
-  min-width: 0;
-  padding: 0 0 10px;
-  border-bottom: 1px solid var(--color-line);
-}
-.archive-token-main {
-  display: grid;
-  grid-template-columns: minmax(72px, .7fr) minmax(0, 1fr) minmax(126px, auto);
-  gap: 10px;
-  align-items: baseline;
-  color: var(--color-body);
-  font-size: var(--text-meta);
-}
-.archive-token-meta {
-  gap: 4px var(--space-sm);
-}
-.archive-token-meta div {
-  min-width: 0;
-}
-.archive-token-meta dd {
+.archive-token-hashes dd {
   overflow-wrap: anywhere;
+}
+.archive-token-loading {
+  padding-top: 8px;
 }
 .archive-preview {
   display: grid;
@@ -602,15 +584,6 @@ dd {
   margin: 0;
   line-height: 1.8;
   white-space: pre-wrap;
-}
-.archive-preview-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 6px 14px;
-}
-.archive-preview-summary .hint {
-  margin: 0;
 }
 .inline-link {
   width: fit-content;
@@ -716,11 +689,7 @@ dd {
   .link-item {
     border-color: var(--color-line);
   }
-  .token-item {
-    border-color: var(--color-line);
-  }
-  .link-list,
-  .token-list {
+  .link-list {
     border-color: var(--color-line);
   }
   .link-detail-body {
@@ -772,23 +741,27 @@ dd {
   .link-detail summary {
     min-height: 44px;
   }
-  .archive-detail-grid {
+  .active-link-row {
     grid-template-columns: 1fr;
   }
-  .archive-room-item {
-    display: grid;
+  .active-row-actions {
+    justify-content: start;
+    min-width: 0;
+    padding: var(--space-md) 0 0;
+    border-left: 0;
+    border-top: 1px solid var(--color-line);
   }
-  .archive-management {
+  .archive-link-row {
+    grid-template-columns: 1fr;
+  }
+  .archive-actions {
+    justify-content: start;
     padding: var(--space-md) 0 0;
     border-left: 0;
     border-top: 1px solid var(--color-line);
   }
   .archive-delete-button {
     justify-self: start;
-  }
-  .archive-token-main {
-    grid-template-columns: 1fr;
-    gap: 2px;
   }
   .issued-layout {
     grid-template-columns: 1fr;
