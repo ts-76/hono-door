@@ -612,10 +612,6 @@ function LinkListApp({
                         <dd>{link.currentRoomId}</dd>
                       </div>
                       <div>
-                        <dt>{t.activeTokens}</dt>
-                        <dd>{link.activeTokenCount}</dd>
-                      </div>
-                      <div>
                         <dt>{t.latestExpiry}</dt>
                         <dd>{formatDateTime(link.latestExpiresAt, locale)}</dd>
                       </div>
@@ -1000,10 +996,6 @@ function ArchiveApp({
                     <div>
                       <dt>{t.contentId}</dt>
                       <dd>{link.currentRoomId}</dd>
-                    </div>
-                    <div>
-                      <dt>{t.tokenCount}</dt>
-                      <dd>{link.tokenCount}</dd>
                     </div>
                     <div>
                       <dt>{t.latestExpiry}</dt>
