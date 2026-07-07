@@ -1,7 +1,10 @@
 # Hono Short Link DO
 
-DX-first Hono middleware for short-lived public links on Cloudflare Workers and
-Durable Objects.
+Hono route kit for short-lived public links on Cloudflare Workers and Durable
+Objects. It includes token-protection middleware, admin API routes, optional
+browser admin UI routes, and the Durable Object classes that store link state.
+
+Languages: English | [日本語](docs/README.ja.md)
 
 The Worker in this repo is intentionally small: Hono mounts public link routes,
 the admin API, and the optional admin UI, then exports the Durable Object classes
@@ -33,7 +36,7 @@ This repo builds two publishable packages:
 
 | Package | Purpose | QR dependency |
 | --- | --- | --- |
-| `hono-door` | Core Hono routes, admin API, middleware, Durable Objects | no |
+| `hono-door` | Core Hono routes, token-protection middleware, admin API, Durable Objects | no |
 | `hono-door-ui` | Optional browser admin UI mounted at `/admin/ui` | yes |
 
 Install only the core package when you do not need the browser UI:
