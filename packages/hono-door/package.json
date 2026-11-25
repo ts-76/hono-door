@@ -1,6 +1,6 @@
 {
   "name": "hono-door",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Hono routes, middleware, and Durable Objects for short-lived public links on Cloudflare Workers.",
   "license": "MIT",
   "author": "ts-76",

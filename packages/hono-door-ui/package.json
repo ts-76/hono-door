@@ -1,6 +1,6 @@
 {
   "name": "hono-door-ui",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Optional browser admin UI for hono-door short-lived public links and QR code issuing.",
   "license": "MIT",
   "author": "ts-76",
